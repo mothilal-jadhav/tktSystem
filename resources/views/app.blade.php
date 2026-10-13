@@ -8,6 +8,17 @@
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
+        {{-- Apply the saved (or system) colour scheme before paint to avoid a flash. --}}
+        <script>
+            (function () {
+                try {
+                    var saved = localStorage.getItem('appearance');
+                    var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    document.documentElement.classList.toggle('dark', dark);
+                } catch (e) {}
+            })();
+        </script>
+
         @fonts
 
         @viteReactRefresh
