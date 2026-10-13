@@ -9,3 +9,6 @@
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
 }
+
+/* Dark mode follows the `dark` class on <html> so the top bar toggle can control it. */
+@custom-variant dark (&:where(.dark, .dark *));
