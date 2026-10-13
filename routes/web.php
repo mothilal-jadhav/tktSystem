@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'hello')->name('home');
+// TODO: add ->middleware('auth') once the login feature exists.
+Route::get('/', DashboardController::class)->name('dashboard');
