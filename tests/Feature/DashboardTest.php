@@ -50,5 +50,5 @@ test('the dashboard props do not expose sensitive fields', function () {
 });
 
 test('guests are redirected away from the dashboard', function () {
-    $this->get(route('dashboard'))->assertRedirect(route('register'));
+    $this->get(route('dashboard'))->assertRedirect(route('login'));
 });

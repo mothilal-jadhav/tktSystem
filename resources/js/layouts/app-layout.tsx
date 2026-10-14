@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { Icon } from '@/components/icons';
 import type { IconName } from '@/components/icons';
 import { cn } from '@/lib/utils';
-import { dashboard } from '@/routes';
+import { dashboard, logout } from '@/routes';
 
 type NavItem = {
     label: string;
@@ -213,6 +213,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                                 </span>
                             </span>
                         </div>
+                        <Link
+                            href={logout()}
+                            as="button"
+                            aria-label="Sign out"
+                            className="ml-1 rounded-md p-2 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                            <Icon name="logout" className="size-5" />
+                        </Link>
                     </div>
                 </header>
 
