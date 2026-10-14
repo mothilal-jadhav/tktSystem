@@ -70,7 +70,7 @@ A public registration page was first built on `/`. Because tktSystem is an inter
     - On success the session ID is regenerated (prevents session fixation) and the user is sent to the page they originally asked for, or the dashboard.
 - "Remember me" uses Laravel's built-in remember cookie and `remember_token` column.
 - `POST /logout` signs the user out, invalidates the session, regenerates the CSRF token, and redirects to `/`. It is POST-only so CSRF protection stops other sites from signing users out.
-- Only the signed-in user's `id` and `name` are shared with every page (`HandleInertiaRequests`), not the whole user model.
+- Only the signed-in user's `id` and `name` (plus the `auth.can` permission flags described below) are shared with every page (`HandleInertiaRequests`), not the whole user model.
 
 ### 5. Create user
 
@@ -80,7 +80,7 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 - **Email:** generated on the server from the letters in the name, lowercased, plus `@gmail.com`. For example, `Dr. Asha  Rao` becomes `drasharao@gmail.com`. If that address is taken, a number is added (`drasharao1@gmail.com`, `drasharao2@gmail.com`, …).
 - **Password:** a random 16-character string from `Str::password(16)`, stored hashed. The plain password is shown to the creator **once**, using Inertia flash data, which is not kept in browser history. It is never stored or logged.
 - Any `email`, `password`, or `must_change_password` value sent by the client is ignored.
-- For now, any signed-in user can create users; this will be restricted to administrators once roles exist.
+- Only **admins** can create users (see [Permissions](#8-permissions)).
 
 ### 6. Forced password change on first login
 
@@ -89,14 +89,20 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 - The new password (`UpdatePasswordRequest`) must meet `Password::defaults()`, be confirmed, and differ from the temporary password.
 - On success, `PasswordController` saves the password, clears the flag, regenerates the session, and redirects to the dashboard. Users without a temporary password who open `/password/change` are sent to the dashboard.
 
-### 7. Roles (no permissions yet)
+### 7. Roles
 
 - Three roles live in a `roles` table: **requester** (raises tickets), **agent** (works on and resolves them), and **admin** (manages the system). The rows are inserted by the migration itself, because the app can't run without them. Their names are constants on `App\Models\Role` (`Role::REQUESTER`, `Role::AGENT`, `Role::ADMIN`).
 - Every user has exactly one role through a required `users.role_id` foreign key. A role can't be deleted while users still have it.
 - Users who already existed when roles were added became **admin**. Users created from the Create user form are always **requester**.
 - `role_id` is not mass-assignable, so a role sent by the client is ignored.
 - The factory defaults to requester, with `agent()` and `admin()` states; the seeded `test@example.com` user is an admin.
-- Roles don't grant or restrict anything yet. Permissions come next.
+- Roles are used for permissions; see below.
+
+### 8. Permissions
+
+- Permissions are enforced on the server with a Laravel **policy**: `App\Policies\UserPolicy::create()` allows only users whose role is admin (`$user->hasRole(Role::ADMIN)`).
+- Both `GET /users/create` and `POST /users` check it with the route's `can('create', User::class)` middleware, and `StoreUserRequest::authorize()` checks it again. Requesters and agents get **403 Forbidden**.
+- The result is also shared with the frontend as `auth.can.createUsers`, which only hides the **Create user** sidebar link from non-admins. Hiding the link is cosmetic; the server check is the real protection.
 
 ### Shared UI
 
@@ -114,8 +120,9 @@ app/Http/Requests/StoreUserRequest.php                  Create user validation (
 app/Http/Requests/Auth/LoginRequest.php                 Login validation, attempt, rate limiting
 app/Http/Requests/Auth/UpdatePasswordRequest.php        New password validation
 app/Http/Middleware/EnsurePasswordIsChanged.php         Redirects users with a temporary password
-app/Http/Middleware/HandleInertiaRequests.php           Shared props (user id and name only)
+app/Http/Middleware/HandleInertiaRequests.php           Shared props (user id/name, auth.can flags)
 app/Models/Role.php                                     Role model and role name constants
+app/Policies/UserPolicy.php                             Who may create users (admins only)
 database/migrations/..._add_must_change_password_to_users_table.php
 database/migrations/..._create_roles_table.php          Roles table + the three role rows
 database/migrations/..._add_role_id_to_users_table.php  users.role_id (existing users become admin)
@@ -195,7 +202,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 
 - `tests/Feature/DashboardTest.php`: signed-in users see the `dashboard` component; it receives every expected prop with the right types (6 stats, 12 days of chart data, a resolution rate between 0 and 100, department counts, and recent tickets); the props never include sensitive fields such as `password`, `remember_token`, `email`, or `internal_note`; guests are redirected to the login page.
 - `tests/Feature/Auth/AuthenticationTest.php`: the login page renders; valid credentials sign in and regenerate the session ID; a wrong password and an unknown email get the same error; invalid input is rejected; the remember cookie is set only when "Remember me" is ticked; repeated failures lock the account out; users return to the page they asked for; signed-in users are kept away from the login page; logout works, is POST-only, and is not available to guests; registration routes are gone; only the user's `id` and `name` are shared.
-- `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long); client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
+- `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; requesters and agents get 403 on both; only admins are told they can create users; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long); client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
 - `tests/Feature/RoleTest.php`: the three roles exist with unique names; users created from the form are requesters, even when the client sends a role; `role_id` can't be mass-assigned; the user/role relationships and factory states work; a role in use can't be deleted.
 - `tests/Feature/Auth/PasswordChangeTest.php`: users with a temporary password are redirected from protected pages; signing in with one leads to the change page; they can still sign out; the new password is validated (missing, too short, mismatched, same as temporary); a successful change lifts the restriction; other users skip the page; guests can't reach it.
 
@@ -203,9 +210,10 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 
 - The dashboard and user pages require a signed-in user (`auth` middleware), and users with a temporary password are held on the change-password page until they set their own.
 - Login uses one generic error for unknown emails and wrong passwords (no user enumeration), is rate limited per email + IP, and regenerates the session ID. Logout is POST-only and invalidates the session.
-- Only the user's `id` and `name` are shared with the frontend. A test makes sure dashboard props don't leak sensitive fields.
+- Only the user's `id` and `name`, plus the `auth.can` flags, are shared with the frontend. A test makes sure dashboard props don't leak sensitive fields.
 - When creating users, only the name is accepted from the client; the email, password, and `must_change_password` flag are set on the server. The temporary password is stored hashed and shown once.
-- **Known gaps:** any signed-in user can create users until roles exist (there is a `TODO` in `StoreUserRequest::authorize()`). Generated `@gmail.com` addresses belong to real Gmail users, so the domain should be changed before email notifications are built.
+- Creating users is restricted to admins by `UserPolicy`, checked on both routes and in the form request, with negative tests for requesters and agents.
+- **Known gap:** generated `@gmail.com` addresses belong to real Gmail users, so the domain should be changed before email notifications are built.
 - Planned rules for every feature: validate all input on the server, enforce authorization with Policies/Gates, guard against IDOR, never trust client-supplied IDs, roles, or ownership, keep internal notes and private attachments hidden from unauthorized users, and make sure uploaded files can never be executed.
 
 ## Roadmap
@@ -214,7 +222,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - [x] Dashboard UI (sample data), layout, and dark mode
 - [x] Authentication: login, logout, remember me, rate limiting (public registration removed)
 - [ ] User management (done so far: create user with a generated email and temporary password, and a forced password change on first login)
-- [ ] Departments and roles (done so far: requester, agent, and admin roles, with no permissions yet)
+- [ ] Departments and roles (done so far: requester, agent, and admin roles; only admins can create users)
 - [ ] Ticket creation, listing, details, and updates
 - [ ] Ticket assignment and status management
 - [ ] Role-based and resource-level authorization
