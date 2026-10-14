@@ -5,6 +5,7 @@ import { Icon } from '@/components/icons';
 import type { IconName } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { dashboard, logout } from '@/routes';
+import { create as createUser } from '@/routes/users';
 
 type NavItem = {
     label: string;
@@ -25,7 +26,10 @@ const navSections: { title: string; items: NavItem[] }[] = [
     },
     {
         title: 'Admin',
-        items: [{ label: 'Settings', icon: 'settings' }],
+        items: [
+            { label: 'Create user', icon: 'userPlus', href: createUser.url() },
+            { label: 'Settings', icon: 'settings' },
+        ],
     },
 ];
 
