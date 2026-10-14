@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
-    $this->creator = User::factory()->create();
+    $this->creator = User::factory()->admin()->create();
 });
 
 test('guests cannot open the create user page', function () {
@@ -18,7 +18,7 @@ test('guests cannot create users', function () {
     expect(User::count())->toBe(1);
 });
 
-test('signed-in users see the create user form', function () {
+test('admins see the create user form', function () {
     $this->actingAs($this->creator)
         ->get(route('users.create'))
         ->assertOk()
@@ -104,3 +104,27 @@ test('users with a temporary password cannot create users', function () {
 
     expect(User::count())->toBe(1);
 });
+
+test('non-admins cannot open the create user page', function (string $role) {
+    $this->actingAs(User::factory()->{$role}()->create())
+        ->get(route('users.create'))
+        ->assertForbidden();
+})->with(['requester' => 'requester', 'agent' => 'agent']);
+
+test('non-admins cannot create users', function (string $role) {
+    $this->actingAs(User::factory()->{$role}()->create())
+        ->post(route('users.store'), ['name' => 'Asha Rao'])
+        ->assertForbidden();
+
+    expect(User::where('email', 'asharao@gmail.com')->exists())->toBeFalse();
+})->with(['requester' => 'requester', 'agent' => 'agent']);
+
+test('only admins are told they can create users', function (string $role, bool $can) {
+    $this->actingAs(User::factory()->{$role}()->create())
+        ->get(route('dashboard'))
+        ->assertInertia(fn (Assert $page) => $page->where('auth.can.createUsers', $can));
+})->with([
+    'requester' => ['requester', false],
+    'agent' => ['agent', false],
+    'admin' => ['admin', true],
+]);

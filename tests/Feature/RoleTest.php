@@ -23,7 +23,7 @@ test('users created from the form are requesters', function () {
 test('a role sent by the client is ignored', function () {
     $adminId = Role::where('name', Role::ADMIN)->value('id');
 
-    $this->actingAs(User::factory()->create())
+    $this->actingAs(User::factory()->admin()->create())
         ->post(route('users.store'), [
             'name' => 'Asha Rao',
             'role_id' => $adminId,
