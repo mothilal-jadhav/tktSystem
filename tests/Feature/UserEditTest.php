@@ -8,7 +8,7 @@ beforeEach(function () {
     $this->admin = User::factory()->admin()->create();
     $this->target = User::factory()->employee()->create([
         'name' => 'Asha Rao',
-        'email' => 'asharao@gmail.com',
+        'email' => 'asharao@fakemail.com',
     ]);
 });
 
@@ -21,7 +21,7 @@ test('admins see the edit form with the user and role options', function () {
             ->where('user', [
                 'id' => $this->target->id,
                 'name' => 'Asha Rao',
-                'email' => 'asharao@gmail.com',
+                'email' => 'asharao@fakemail.com',
                 'role' => 'employee',
             ])
             ->where('roles', ['employee', 'manager', 'admin'])
@@ -55,7 +55,7 @@ test('the name and email cannot be changed', function () {
 
     $user = $this->target->fresh();
     expect($user->name)->toBe('Asha Rao')
-        ->and($user->email)->toBe('asharao@gmail.com')
+        ->and($user->email)->toBe('asharao@fakemail.com')
         ->and($user->role->name)->toBe('manager')
         ->and($user->must_change_password)->toBeFalse();
 });

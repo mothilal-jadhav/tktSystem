@@ -27,7 +27,7 @@ test('a raw role_id sent by the client is ignored', function () {
             'role_id' => $adminId,
         ]);
 
-    expect(User::where('email', 'asharao@gmail.com')->sole()->role->name)->toBe(Role::EMPLOYEE);
+    expect(User::where('email', 'asharao@fakemail.com')->sole()->role->name)->toBe(Role::EMPLOYEE);
 });
 
 test('the role cannot be mass assigned', function () {

@@ -30,7 +30,7 @@ test('the email is built from the letters in the name', function () {
         ->post(route('users.store'), ['name' => 'Dr. Asha  Rao', 'role' => 'employee'])
         ->assertRedirect(route('users.create'));
 
-    $user = User::where('email', 'drasharao@gmail.com')->sole();
+    $user = User::where('email', 'drasharao@fakemail.com')->sole();
     expect($user->name)->toBe('Dr. Asha  Rao')
         ->and($user->must_change_password)->toBeTrue();
 });
@@ -41,7 +41,7 @@ test('a number is added when the generated email is already taken', function () 
     }
 
     expect(User::where('name', 'John Doe')->orderBy('id')->pluck('email')->all())
-        ->toBe(['johndoe@gmail.com', 'johndoe1@gmail.com', 'johndoe2@gmail.com']);
+        ->toBe(['johndoe@fakemail.com', 'johndoe1@fakemail.com', 'johndoe2@fakemail.com']);
 });
 
 test('the temporary password is shown once and stored hashed', function () {
@@ -51,9 +51,9 @@ test('the temporary password is shown once and stored hashed', function () {
         ->get(route('users.create'))
         ->viewData('page')['flash']['createdUser'];
 
-    $user = User::where('email', 'asharao@gmail.com')->sole();
+    $user = User::where('email', 'asharao@fakemail.com')->sole();
 
-    expect($flashed['email'])->toBe('asharao@gmail.com')
+    expect($flashed['email'])->toBe('asharao@fakemail.com')
         ->and(strlen($flashed['password']))->toBe(16)
         ->and($user->password)->not->toBe($flashed['password'])
         ->and(Hash::check($flashed['password'], $user->password))->toBeTrue();
@@ -91,7 +91,7 @@ test('client-supplied email, password and flags are ignored', function () {
 
     $user = User::where('name', 'Asha Rao')->sole();
 
-    expect($user->email)->toBe('asharao@gmail.com')
+    expect($user->email)->toBe('asharao@fakemail.com')
         ->and(Hash::check('chosen-by-client', $user->password))->toBeFalse()
         ->and($user->must_change_password)->toBeTrue();
 });
@@ -117,7 +117,7 @@ test('non-admins cannot create users', function (string $role) {
         ->post(route('users.store'), ['name' => 'Asha Rao', 'role' => 'employee'])
         ->assertForbidden();
 
-    expect(User::where('email', 'asharao@gmail.com')->exists())->toBeFalse();
+    expect(User::where('email', 'asharao@fakemail.com')->exists())->toBeFalse();
 })->with(['employee' => 'employee', 'manager' => 'manager']);
 
 test('only admins are told they can create users', function (string $role, bool $can) {
@@ -141,7 +141,7 @@ test('admins choose the new user\'s role', function (string $role) {
         ->post(route('users.store'), ['name' => 'Asha Rao', 'role' => $role])
         ->assertRedirect(route('users.create'));
 
-    expect(User::where('email', 'asharao@gmail.com')->sole()->role->name)->toBe($role);
+    expect(User::where('email', 'asharao@fakemail.com')->sole()->role->name)->toBe($role);
 
     $flashed = $this->actingAs($this->creator)->get(route('users.create'))->viewData('page')['flash']['createdUser'];
     expect($flashed['role'])->toBe($role);

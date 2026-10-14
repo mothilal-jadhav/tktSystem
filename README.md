@@ -78,7 +78,7 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 
 - **Name:** required, max 255 characters, and must match `/^(?=.*[A-Za-z])[A-Za-z. ]+$/`, meaning letters, spaces, and full stops only, with at least one letter.
 - **Role:** a dropdown of **employee** (the default), **manager**, or **admin**, loaded from the `roles` table. The server only accepts one of those three names (`Rule::in`); a raw `role_id` is never read. The success panel shows the chosen role.
-- **Email:** generated on the server from the letters in the name, lowercased, plus `@gmail.com`. For example, `Dr. Asha  Rao` becomes `drasharao@gmail.com`. If that address is taken, a number is added (`drasharao1@gmail.com`, `drasharao2@gmail.com`, …).
+- **Email:** generated on the server from the letters in the name, lowercased, plus `@fakemail.com` (a placeholder domain, `UserController::EMAIL_DOMAIN`). For example, `Dr. Asha  Rao` becomes `drasharao@fakemail.com`. If that address is taken, a number is added (`drasharao1@fakemail.com`, `drasharao2@fakemail.com`, …).
 - **Password:** a random 16-character string from `Str::password(16)`, stored hashed. The plain password is shown to the creator **once**, using Inertia flash data, which is not kept in browser history. It is never stored or logged.
 - Any `email`, `password`, `must_change_password`, or `role_id` value sent by the client is ignored.
 - Choosing **admin** makes a user who can't be edited or deleted in the app afterwards, because admins can't act on other admins.
@@ -131,7 +131,7 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
     - **Delete forever** (`DELETE /bin/{user}`), after a confirmation: permanently removes the row. This can't be undone.
 - The bin routes use `withTrashed()` so `{user}` can match deleted users, and the policy only allows restore or delete-forever on users that are actually in the bin.
 - A short success message (Inertia flash `status`) appears at the top of the page after deleting, restoring, or deleting forever.
-- Users in the bin keep their email, so a newly created user with the same name gets the next number (e.g. `johndoe1@gmail.com`).
+- Users in the bin keep their email, so a newly created user with the same name gets the next number (e.g. `johndoe1@fakemail.com`).
 
 ### 11. Editing a user's role
 
@@ -189,6 +189,7 @@ tests/Feature/Auth/AuthenticationTest.php               Login, logout, registrat
 tests/Feature/Auth/PasswordChangeTest.php               Forced password change tests
 tests/Feature/RoleTest.php                              Role tests
 tests/Feature/UserListTest.php                          Users list tests
+tests/Feature/EmailDomainMigrationTest.php              gmail → fakemail migration tests
 tests/Feature/UserEditTest.php                          Edit user (role) tests
 tests/Feature/UserBinTest.php                           Delete, bin, restore, and delete-forever tests
 ```
@@ -250,6 +251,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - `tests/Feature/DashboardTest.php`: signed-in users see the `dashboard` component; it receives every expected prop with the right types (6 stats, 12 days of chart data, a resolution rate between 0 and 100, department counts, and recent tickets); the props never include sensitive fields such as `password`, `remember_token`, `email`, or `internal_note`; guests are redirected to the login page.
 - `tests/Feature/Auth/AuthenticationTest.php`: the login page renders; valid credentials sign in and regenerate the session ID; a wrong password and an unknown email get the same error; invalid input is rejected; the remember cookie is set only when "Remember me" is ticked; repeated failures lock the account out; users return to the page they asked for; signed-in users are kept away from the login page; logout works, is POST-only, and is not available to guests; registration routes are gone; only the user's `id` and `name` are shared.
 - `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; employees and managers get 403 on both; the form receives the role options; admins can create employees, managers, and admins; missing, unknown, or old (requester/agent) roles are rejected; only admins are told they can create users; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long); client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
+- `tests/Feature/EmailDomainMigrationTest.php`: `@gmail.com` addresses (including binned users) move to `@fakemail.com` and others are untouched; only the trailing domain is replaced; a clash stops and rolls back the whole change; the migration reverses; signing in works with the new address.
 - `tests/Feature/UserEditTest.php`: admins see the edit form with the user and role options; admins can set each role and a message is flashed; name, email, `role_id`, and other fields can't be changed; missing, unknown, or old roles are rejected; admins can't edit another admin or themselves; employees, managers, and guests can't edit; users in the bin can't be edited.
 - `tests/Feature/UserBinTest.php`: admins can move employees and managers to the bin, but not admins or themselves; employees, managers, and guests can't delete; deleted users vanish from the list, can't sign in, and are signed out if already signed in; a success message is flashed; new users don't reuse a binned user's email; only admins can see the bin, which lists only deleted users with safe fields; admins can restore (and the user can sign in again) or delete forever, non-admins can't, and neither works on users that aren't in the bin.
 - `tests/Feature/UserListTest.php`: guests are redirected; employees, managers, and admins can all see the list; each row has exactly name, email, role, joined date, and permission flags; no sensitive fields are sent; users are sorted by name, 15 per page; users with a temporary password are sent to change it first; only admins get the manage view; the policy lets admins edit or delete employees and managers but not admins or themselves, and never lets employees or managers.
@@ -264,7 +266,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - When creating users, only the name and a validated role name are accepted from the client; the email, password, and `must_change_password` flag are set on the server. The temporary password is stored hashed and shown once.
 - Creating users is restricted to admins by `UserPolicy`, checked on both routes and in the form request, with negative tests for employees and managers.
 - Deleting is a soft delete, so a mistaken delete can be undone from the Bin; only admins can delete forever, after a confirmation.
-- **Known gap:** generated `@gmail.com` addresses belong to real Gmail users, so the domain should be changed before email notifications are built.
+- Generated emails use the placeholder domain `@fakemail.com`. They were `@gmail.com` at first; a migration moved every existing `@gmail.com` address (including users in the bin) to `@fakemail.com`, stopping and rolling back if any new address would already be taken.
 - Planned rules for every feature: validate all input on the server, enforce authorization with Policies/Gates, guard against IDOR, never trust client-supplied IDs, roles, or ownership, keep internal notes and private attachments hidden from unauthorized users, and make sure uploaded files can never be executed.
 
 ## Roadmap

@@ -16,6 +16,11 @@ use Inertia\Response;
 class UserController extends Controller
 {
     /**
+     * Domain for generated user emails. Not a real mail provider.
+     */
+    private const EMAIL_DOMAIN = 'fakemail.com';
+
+    /**
      * List users, 15 per page, sorted by name.
      */
     public function index(Request $request): Response
@@ -127,17 +132,17 @@ class UserController extends Controller
 
     /**
      * Build an email from the letters in the name, e.g. "Dr. Asha Rao"
-     * becomes drasharao@gmail.com, adding a number if it is already taken.
+     * becomes drasharao@fakemail.com, adding a number if it is already taken.
      */
     private function uniqueEmailFor(string $name): string
     {
         $local = strtolower((string) preg_replace('/[^A-Za-z]/', '', $name));
 
-        $email = "{$local}@gmail.com";
+        $email = "{$local}@".self::EMAIL_DOMAIN;
 
         // Users in the bin keep their email, so they are checked too.
         for ($suffix = 1; User::withTrashed()->where('email', $email)->exists(); $suffix++) {
-            $email = "{$local}{$suffix}@gmail.com";
+            $email = "{$local}{$suffix}@".self::EMAIL_DOMAIN;
         }
 
         return $email;
