@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
@@ -33,6 +34,7 @@ class UserController extends Controller
             'password' => $password,
         ]);
         $user->must_change_password = true;
+        $user->role()->associate(Role::where('name', Role::REQUESTER)->sole());
         $user->save();
 
         // Flash data is shown on the next page only and is not kept in the

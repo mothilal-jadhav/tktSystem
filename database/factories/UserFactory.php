@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -30,6 +31,7 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            'role_id' => fn () => Role::where('name', Role::REQUESTER)->value('id'),
         ];
     }
 
@@ -40,6 +42,29 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    /**
+     * Give the user the agent role.
+     */
+    public function agent(): static
+    {
+        return $this->withRole(Role::AGENT);
+    }
+
+    /**
+     * Give the user the admin role.
+     */
+    public function admin(): static
+    {
+        return $this->withRole(Role::ADMIN);
+    }
+
+    private function withRole(string $name): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role_id' => Role::where('name', $name)->value('id'),
         ]);
     }
 }

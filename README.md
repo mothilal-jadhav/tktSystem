@@ -89,6 +89,15 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 - The new password (`UpdatePasswordRequest`) must meet `Password::defaults()`, be confirmed, and differ from the temporary password.
 - On success, `PasswordController` saves the password, clears the flag, regenerates the session, and redirects to the dashboard. Users without a temporary password who open `/password/change` are sent to the dashboard.
 
+### 7. Roles (no permissions yet)
+
+- Three roles live in a `roles` table: **requester** (raises tickets), **agent** (works on and resolves them), and **admin** (manages the system). The rows are inserted by the migration itself, because the app can't run without them. Their names are constants on `App\Models\Role` (`Role::REQUESTER`, `Role::AGENT`, `Role::ADMIN`).
+- Every user has exactly one role through a required `users.role_id` foreign key. A role can't be deleted while users still have it.
+- Users who already existed when roles were added became **admin**. Users created from the Create user form are always **requester**.
+- `role_id` is not mass-assignable, so a role sent by the client is ignored.
+- The factory defaults to requester, with `agent()` and `admin()` states; the seeded `test@example.com` user is an admin.
+- Roles don't grant or restrict anything yet. Permissions come next.
+
 ### Shared UI
 
 - Login, change-password, and create-user pages share the dashboard's style: slate backgrounds, indigo accents, white cards, and dark mode support.
@@ -106,7 +115,10 @@ app/Http/Requests/Auth/LoginRequest.php                 Login validation, attemp
 app/Http/Requests/Auth/UpdatePasswordRequest.php        New password validation
 app/Http/Middleware/EnsurePasswordIsChanged.php         Redirects users with a temporary password
 app/Http/Middleware/HandleInertiaRequests.php           Shared props (user id and name only)
+app/Models/Role.php                                     Role model and role name constants
 database/migrations/..._add_must_change_password_to_users_table.php
+database/migrations/..._create_roles_table.php          Roles table + the three role rows
+database/migrations/..._add_role_id_to_users_table.php  users.role_id (existing users become admin)
 routes/web.php                                          Web routes
 resources/views/app.blade.php                           Root HTML shell + theme bootstrap script
 resources/js/app.tsx                                    Inertia/React entry point
@@ -124,6 +136,7 @@ tests/Feature/DashboardTest.php                         Dashboard tests
 tests/Feature/UserCreationTest.php                      Create user tests
 tests/Feature/Auth/AuthenticationTest.php               Login, logout, registration-removed tests
 tests/Feature/Auth/PasswordChangeTest.php               Forced password change tests
+tests/Feature/RoleTest.php                              Role tests
 ```
 
 ## Getting started
@@ -155,7 +168,7 @@ DB_PASSWORD=your_password
 
 To use SQLite instead, set `DB_CONNECTION=sqlite`, run `touch database/database.sqlite`, and then `php artisan migrate`.
 
-There is no public sign-up. To get a first account locally, run `php artisan db:seed`, which creates `test@example.com` with the password `password`. Further accounts are created from **Create user** in the sidebar.
+There is no public sign-up. To get a first account locally, run `php artisan db:seed`, which creates the admin `test@example.com` with the password `password`. Further accounts are created from **Create user** in the sidebar.
 
 ### Run in development
 
@@ -183,6 +196,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - `tests/Feature/DashboardTest.php`: signed-in users see the `dashboard` component; it receives every expected prop with the right types (6 stats, 12 days of chart data, a resolution rate between 0 and 100, department counts, and recent tickets); the props never include sensitive fields such as `password`, `remember_token`, `email`, or `internal_note`; guests are redirected to the login page.
 - `tests/Feature/Auth/AuthenticationTest.php`: the login page renders; valid credentials sign in and regenerate the session ID; a wrong password and an unknown email get the same error; invalid input is rejected; the remember cookie is set only when "Remember me" is ticked; repeated failures lock the account out; users return to the page they asked for; signed-in users are kept away from the login page; logout works, is POST-only, and is not available to guests; registration routes are gone; only the user's `id` and `name` are shared.
 - `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long); client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
+- `tests/Feature/RoleTest.php`: the three roles exist with unique names; users created from the form are requesters, even when the client sends a role; `role_id` can't be mass-assigned; the user/role relationships and factory states work; a role in use can't be deleted.
 - `tests/Feature/Auth/PasswordChangeTest.php`: users with a temporary password are redirected from protected pages; signing in with one leads to the change page; they can still sign out; the new password is validated (missing, too short, mismatched, same as temporary); a successful change lifts the restriction; other users skip the page; guests can't reach it.
 
 ## Security notes
@@ -200,7 +214,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - [x] Dashboard UI (sample data), layout, and dark mode
 - [x] Authentication: login, logout, remember me, rate limiting (public registration removed)
 - [ ] User management (done so far: create user with a generated email and temporary password, and a forced password change on first login)
-- [ ] Departments and roles (requester, agent, department lead, administrator)
+- [ ] Departments and roles (done so far: requester, agent, and admin roles, with no permissions yet)
 - [ ] Ticket creation, listing, details, and updates
 - [ ] Ticket assignment and status management
 - [ ] Role-based and resource-level authorization
