@@ -14,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // No login page yet, so guests are sent to registration.
+        $middleware->redirectGuestsTo(fn () => route('register'));
+        $middleware->redirectUsersTo(fn () => route('dashboard'));
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
