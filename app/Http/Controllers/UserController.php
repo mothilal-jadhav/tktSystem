@@ -49,7 +49,9 @@ class UserController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('users/create');
+        return Inertia::render('users/create', [
+            'roles' => Role::orderBy('id')->pluck('name'),
+        ]);
     }
 
     /**
@@ -66,7 +68,7 @@ class UserController extends Controller
             'password' => $password,
         ]);
         $user->must_change_password = true;
-        $user->role()->associate(Role::where('name', Role::REQUESTER)->sole());
+        $user->role()->associate(Role::where('name', $request->validated('role'))->sole());
         $user->save();
 
         // Flash data is shown on the next page only and is not kept in the
@@ -74,6 +76,7 @@ class UserController extends Controller
         Inertia::flash('createdUser', [
             'name' => $user->name,
             'email' => $user->email,
+            'role' => $user->role->name,
             'password' => $password,
         ]);
 
