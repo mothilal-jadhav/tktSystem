@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\UserBinController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
 use App\Models\User;
@@ -36,5 +37,24 @@ Route::middleware('auth')->group(function () {
         Route::post('/users', [UserController::class, 'store'])
             ->can('create', User::class)
             ->name('users.store');
+
+        // Admins only, and never another admin (UserPolicy::delete).
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])
+            ->can('delete', 'user')
+            ->name('users.destroy');
+
+        // The bin of deleted users. Admins only (UserPolicy::viewTrashed/restore/forceDelete).
+        // withTrashed() lets {user} match users that are in the bin.
+        Route::get('/bin', [UserBinController::class, 'index'])
+            ->can('viewTrashed', User::class)
+            ->name('bin.index');
+        Route::patch('/bin/{user}/restore', [UserBinController::class, 'restore'])
+            ->withTrashed()
+            ->can('restore', 'user')
+            ->name('bin.restore');
+        Route::delete('/bin/{user}', [UserBinController::class, 'destroy'])
+            ->withTrashed()
+            ->can('forceDelete', 'user')
+            ->name('bin.destroy');
     });
 });

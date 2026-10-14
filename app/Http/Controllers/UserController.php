@@ -81,6 +81,18 @@ class UserController extends Controller
     }
 
     /**
+     * Move a user to the bin. They can no longer sign in, but can be restored.
+     */
+    public function destroy(User $user): RedirectResponse
+    {
+        $user->delete();
+
+        Inertia::flash('status', "{$user->name} was moved to the bin.");
+
+        return back();
+    }
+
+    /**
      * Build an email from the letters in the name, e.g. "Dr. Asha Rao"
      * becomes drasharao@gmail.com, adding a number if it is already taken.
      */
@@ -90,7 +102,8 @@ class UserController extends Controller
 
         $email = "{$local}@gmail.com";
 
-        for ($suffix = 1; User::where('email', $email)->exists(); $suffix++) {
+        // Users in the bin keep their email, so they are checked too.
+        for ($suffix = 1; User::withTrashed()->where('email', $email)->exists(); $suffix++) {
             $email = "{$local}{$suffix}@gmail.com";
         }
 
