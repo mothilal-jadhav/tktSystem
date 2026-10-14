@@ -22,4 +22,20 @@ class UserPolicy
     {
         return $user->hasRole(Role::ADMIN);
     }
+
+    /**
+     * Admins may edit any user except another admin (or themselves).
+     */
+    public function update(User $user, User $target): bool
+    {
+        return $user->hasRole(Role::ADMIN) && ! $target->hasRole(Role::ADMIN);
+    }
+
+    /**
+     * Admins may delete any user except another admin (or themselves).
+     */
+    public function delete(User $user, User $target): bool
+    {
+        return $user->hasRole(Role::ADMIN) && ! $target->hasRole(Role::ADMIN);
+    }
 }

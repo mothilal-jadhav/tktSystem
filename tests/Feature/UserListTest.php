@@ -15,7 +15,7 @@ test('every role can see the user list', function (string $role) {
         ->assertInertia(fn (Assert $page) => $page->component('users/index'));
 })->with(['requester', 'agent', 'admin']);
 
-test('each row has only the name, email, role and joined date', function () {
+test('each row has only the name, email, role, joined date and permissions', function () {
     $agent = User::factory()->agent()->create([
         'name' => 'Asha Rao',
         'email' => 'asha@example.com',
@@ -32,6 +32,7 @@ test('each row has only the name, email, role and joined date', function () {
                 'email' => 'asha@example.com',
                 'role' => 'agent',
                 'joined' => '2026-10-01',
+                'can' => ['update' => false, 'delete' => false],
             ])
         );
 });
@@ -76,4 +77,66 @@ test('users with a temporary password are sent to change it first', function () 
     $this->actingAs(User::factory()->create(['must_change_password' => true]))
         ->get(route('users.index'))
         ->assertRedirect(route('password.edit'));
+});
+
+test('only admins get the manage users view', function (string $role, bool $canManage) {
+    $this->actingAs(User::factory()->{$role}()->create())
+        ->get(route('users.index'))
+        ->assertInertia(fn (Assert $page) => $page->where('canManageUsers', $canManage));
+})->with([
+    'requester' => ['requester', false],
+    'agent' => ['agent', false],
+    'admin' => ['admin', true],
+]);
+
+test('admins may edit and delete requesters and agents but not admins', function () {
+    $admin = User::factory()->admin()->create(['name' => 'A Admin']);
+    User::factory()->admin()->create(['name' => 'B Admin']);
+    User::factory()->agent()->create(['name' => 'C Agent']);
+    User::factory()->requester()->create(['name' => 'D Requester']);
+
+    $this->actingAs($admin)
+        ->get(route('users.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('users.data.0.can', ['update' => false, 'delete' => false]) // themselves
+            ->where('users.data.1.can', ['update' => false, 'delete' => false]) // another admin
+            ->where('users.data.2.can', ['update' => true, 'delete' => true])
+            ->where('users.data.3.can', ['update' => true, 'delete' => true])
+        );
+});
+
+test('non-admins may not edit or delete anyone', function (string $role) {
+    $viewer = User::factory()->{$role}()->create();
+    User::factory()->requester()->create();
+    User::factory()->agent()->create();
+    User::factory()->admin()->create();
+
+    $rows = $this->actingAs($viewer)->get(route('users.index'))->viewData('page')['props']['users']['data'];
+
+    foreach ($rows as $row) {
+        expect($row['can'])->toBe(['update' => false, 'delete' => false]);
+    }
+})->with(['requester', 'agent']);
+
+test('the user policy only lets admins edit or delete non-admins', function (string $viewerRole, string $targetRole, bool $allowed) {
+    $viewer = User::factory()->{$viewerRole}()->create();
+    $target = User::factory()->{$targetRole}()->create();
+
+    expect($viewer->can('update', $target))->toBe($allowed)
+        ->and($viewer->can('delete', $target))->toBe($allowed);
+})->with([
+    'admin → requester' => ['admin', 'requester', true],
+    'admin → agent' => ['admin', 'agent', true],
+    'admin → admin' => ['admin', 'admin', false],
+    'agent → requester' => ['agent', 'requester', false],
+    'agent → agent' => ['agent', 'agent', false],
+    'requester → requester' => ['requester', 'requester', false],
+    'requester → agent' => ['requester', 'agent', false],
+]);
+
+test('admins cannot edit or delete themselves', function () {
+    $admin = User::factory()->admin()->create();
+
+    expect($admin->can('update', $admin))->toBeFalse()
+        ->and($admin->can('delete', $admin))->toBeFalse();
 });

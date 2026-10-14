@@ -102,13 +102,16 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 
 - Permissions are enforced on the server with a Laravel **policy**: `App\Policies\UserPolicy::create()` allows only users whose role is admin (`$user->hasRole(Role::ADMIN)`).
 - `UserPolicy::viewAny()` lets every signed-in user see the user list.
+- `UserPolicy::update()` and `delete()` let admins edit or delete requesters and agents, but never another admin (or themselves). The edit and delete actions aren't built yet; for now these rules only decide which buttons appear.
 - Both `GET /users/create` and `POST /users` check it with the route's `can('create', User::class)` middleware, and `StoreUserRequest::authorize()` checks it again. Requesters and agents get **403 Forbidden**.
 - The result is also shared with the frontend as `auth.can.createUsers`, which only hides the **Create user** sidebar link from non-admins. Hiding the link is cosmetic; the server check is the real protection.
 
 ### 9. Users list
 
 - The **Users** sidebar item opens `/users` (`users.index`), which every signed-in user can see (`UserPolicy::viewAny()`).
-- It shows each user's name and email, plus **Edit** and **Delete** buttons that don't do anything yet. Users are sorted by name with 15 per page and Prev/Next links. Pagination happens on the server.
+- Every viewer sees each user's name and email. **Admins** also get an Actions column with **Edit** and **Delete** buttons (not functional yet) on requester and agent rows only; admin rows show a dash. **Requesters and agents** instead see **Department** (empty until departments exist) and **Joined** columns.
+- Each row carries `can.update` and `can.delete` flags computed by `UserPolicy` on the server, and the page gets a `canManageUsers` flag. These only control what's shown.
+- Users are sorted by name with 15 per page and Prev/Next links. Pagination happens on the server.
 - Roles are eager-loaded (`with('role')`), so the page runs one extra query instead of one per user.
 - Each row is built field by field, so only `id`, `name`, `email`, `role`, and `joined` reach the browser.
 - Admins also see a **Create user** button on this page.
@@ -214,7 +217,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - `tests/Feature/DashboardTest.php`: signed-in users see the `dashboard` component; it receives every expected prop with the right types (6 stats, 12 days of chart data, a resolution rate between 0 and 100, department counts, and recent tickets); the props never include sensitive fields such as `password`, `remember_token`, `email`, or `internal_note`; guests are redirected to the login page.
 - `tests/Feature/Auth/AuthenticationTest.php`: the login page renders; valid credentials sign in and regenerate the session ID; a wrong password and an unknown email get the same error; invalid input is rejected; the remember cookie is set only when "Remember me" is ticked; repeated failures lock the account out; users return to the page they asked for; signed-in users are kept away from the login page; logout works, is POST-only, and is not available to guests; registration routes are gone; only the user's `id` and `name` are shared.
 - `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; requesters and agents get 403 on both; only admins are told they can create users; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long); client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
-- `tests/Feature/UserListTest.php`: guests are redirected; requesters, agents, and admins can all see the list; each row has exactly name, email, role, and joined date; no sensitive fields are sent; users are sorted by name, 15 per page; users with a temporary password are sent to change it first.
+- `tests/Feature/UserListTest.php`: guests are redirected; requesters, agents, and admins can all see the list; each row has exactly name, email, role, joined date, and permission flags; no sensitive fields are sent; users are sorted by name, 15 per page; users with a temporary password are sent to change it first; only admins get the manage view; the policy lets admins edit or delete requesters and agents but not admins or themselves, and never lets requesters or agents.
 - `tests/Feature/RoleTest.php`: the three roles exist with unique names; users created from the form are requesters, even when the client sends a role; `role_id` can't be mass-assigned; the user/role relationships and factory states work; a role in use can't be deleted.
 - `tests/Feature/Auth/PasswordChangeTest.php`: users with a temporary password are redirected from protected pages; signing in with one leads to the change page; they can still sign out; the new password is validated (missing, too short, mismatched, same as temporary); a successful change lifts the restriction; other users skip the page; guests can't reach it.
 

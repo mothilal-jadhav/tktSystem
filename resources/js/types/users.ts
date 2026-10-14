@@ -4,6 +4,11 @@ export type UserListItem = {
     email: string;
     role: 'requester' | 'agent' | 'admin';
     joined: string | null;
+    // Decided by UserPolicy on the server; only used to show or hide buttons.
+    can: {
+        update: boolean;
+        delete: boolean;
+    };
 };
 
 // The fields of Laravel's LengthAwarePaginator that the UI uses.
