@@ -47,7 +47,7 @@ The dashboard includes:
 
 Layout and UI:
 
-- An app layout with a sidebar, top bar, and responsive mobile navigation. The signed-in user's name and initial appear in the sidebar and top bar, and the top bar has a sign-out button. Nav items for features that don't exist yet (Tickets, Departments, Users, Settings) are shown without links and marked "soon".
+- An app layout with a sidebar, top bar, and responsive mobile navigation. The signed-in user's name and initial appear in the sidebar and top bar, and the top bar has a sign-out button. Nav items for features that don't exist yet (Tickets, Departments, Settings) are shown without links and marked "soon".
 - A **dark mode toggle**. The choice is saved in `localStorage`, and a small inline script in `app.blade.php` applies the theme before the page paints, so there is no white flash on load. If nothing is saved, it follows the OS preference.
 - A small hand-written SVG icon set (`resources/js/components/icons.tsx`). No icon library was added.
 
@@ -101,8 +101,17 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 ### 8. Permissions
 
 - Permissions are enforced on the server with a Laravel **policy**: `App\Policies\UserPolicy::create()` allows only users whose role is admin (`$user->hasRole(Role::ADMIN)`).
+- `UserPolicy::viewAny()` lets every signed-in user see the user list.
 - Both `GET /users/create` and `POST /users` check it with the route's `can('create', User::class)` middleware, and `StoreUserRequest::authorize()` checks it again. Requesters and agents get **403 Forbidden**.
 - The result is also shared with the frontend as `auth.can.createUsers`, which only hides the **Create user** sidebar link from non-admins. Hiding the link is cosmetic; the server check is the real protection.
+
+### 9. Users list
+
+- The **Users** sidebar item opens `/users` (`users.index`), which every signed-in user can see (`UserPolicy::viewAny()`).
+- It shows each user's name, email, role (as a coloured badge), and joined date, sorted by name with 15 per page and Prev/Next links. Pagination happens on the server.
+- Roles are eager-loaded (`with('role')`), so the page runs one extra query instead of one per user.
+- Each row is built field by field, so only `id`, `name`, `email`, `role`, and `joined` reach the browser.
+- Admins also see a **Create user** button on this page.
 
 ### Shared UI
 
@@ -122,7 +131,7 @@ app/Http/Requests/Auth/UpdatePasswordRequest.php        New password validation
 app/Http/Middleware/EnsurePasswordIsChanged.php         Redirects users with a temporary password
 app/Http/Middleware/HandleInertiaRequests.php           Shared props (user id/name, auth.can flags)
 app/Models/Role.php                                     Role model and role name constants
-app/Policies/UserPolicy.php                             Who may create users (admins only)
+app/Policies/UserPolicy.php                             Who may list users (everyone) and create them (admins)
 database/migrations/..._add_must_change_password_to_users_table.php
 database/migrations/..._create_roles_table.php          Roles table + the three role rows
 database/migrations/..._add_role_id_to_users_table.php  users.role_id (existing users become admin)
@@ -133,17 +142,19 @@ resources/js/layouts/app-layout.tsx                     Sidebar, top bar, mobile
 resources/js/pages/auth/login.tsx                       Login page
 resources/js/pages/auth/change-password.tsx             Set a new password page
 resources/js/pages/users/create.tsx                     Create user page
+resources/js/pages/users/index.tsx                      Users list page
 resources/js/pages/dashboard.tsx                        Dashboard page
 resources/js/components/dashboard/                      Card, stat card, bar chart, ring gauge,
                                                         department bars, recent tickets table
 resources/js/components/form-field.tsx                  Labelled input with validation error
 resources/js/components/icons.tsx                       Inline SVG icons
-resources/js/types/                                     Dashboard, auth, and flash data types
+resources/js/types/                                     Dashboard, auth, flash, and user list types
 tests/Feature/DashboardTest.php                         Dashboard tests
 tests/Feature/UserCreationTest.php                      Create user tests
 tests/Feature/Auth/AuthenticationTest.php               Login, logout, registration-removed tests
 tests/Feature/Auth/PasswordChangeTest.php               Forced password change tests
 tests/Feature/RoleTest.php                              Role tests
+tests/Feature/UserListTest.php                          Users list tests
 ```
 
 ## Getting started
@@ -203,6 +214,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - `tests/Feature/DashboardTest.php`: signed-in users see the `dashboard` component; it receives every expected prop with the right types (6 stats, 12 days of chart data, a resolution rate between 0 and 100, department counts, and recent tickets); the props never include sensitive fields such as `password`, `remember_token`, `email`, or `internal_note`; guests are redirected to the login page.
 - `tests/Feature/Auth/AuthenticationTest.php`: the login page renders; valid credentials sign in and regenerate the session ID; a wrong password and an unknown email get the same error; invalid input is rejected; the remember cookie is set only when "Remember me" is ticked; repeated failures lock the account out; users return to the page they asked for; signed-in users are kept away from the login page; logout works, is POST-only, and is not available to guests; registration routes are gone; only the user's `id` and `name` are shared.
 - `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; requesters and agents get 403 on both; only admins are told they can create users; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long); client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
+- `tests/Feature/UserListTest.php`: guests are redirected; requesters, agents, and admins can all see the list; each row has exactly name, email, role, and joined date; no sensitive fields are sent; users are sorted by name, 15 per page; users with a temporary password are sent to change it first.
 - `tests/Feature/RoleTest.php`: the three roles exist with unique names; users created from the form are requesters, even when the client sends a role; `role_id` can't be mass-assigned; the user/role relationships and factory states work; a role in use can't be deleted.
 - `tests/Feature/Auth/PasswordChangeTest.php`: users with a temporary password are redirected from protected pages; signing in with one leads to the change page; they can still sign out; the new password is validated (missing, too short, mismatched, same as temporary); a successful change lifts the restriction; other users skip the page; guests can't reach it.
 
