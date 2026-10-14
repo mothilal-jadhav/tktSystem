@@ -5,6 +5,7 @@ import { Icon } from '@/components/icons';
 import type { IconName } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { dashboard, logout } from '@/routes';
+import { index as binIndex } from '@/routes/bin';
 import { create as createUser, index as usersIndex } from '@/routes/users';
 import type { Permissions } from '@/types';
 
@@ -37,6 +38,12 @@ const navSections: { title: string; items: NavItem[] }[] = [
                 permission: 'createUsers',
             },
             { label: 'Settings', icon: 'settings' },
+            {
+                label: 'Bin',
+                icon: 'trash',
+                href: binIndex.url(),
+                permission: 'viewBin',
+            },
         ],
     },
 ];
@@ -148,7 +155,7 @@ function Sidebar({
 }
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-    const { url: currentUrl, props } = usePage();
+    const { url: currentUrl, props, flash } = usePage();
     const userName = props.auth.user?.name ?? 'Guest';
     const can = props.auth.can;
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -253,7 +260,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                     </div>
                 </header>
 
-                <main className="p-4 sm:p-6">{children}</main>
+                <main className="p-4 sm:p-6">
+                    {flash.status && (
+                        <p
+                            role="status"
+                            className="mb-5 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900 dark:border-teal-800 dark:bg-teal-950 dark:text-teal-100"
+                        >
+                            {flash.status}
+                        </p>
+                    )}
+                    {children}
+                </main>
             </div>
         </div>
     );

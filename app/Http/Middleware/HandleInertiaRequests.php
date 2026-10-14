@@ -45,6 +45,7 @@ class HandleInertiaRequests extends Middleware
                 // Only used to show or hide UI; the server checks every request itself.
                 'can' => [
                     'createUsers' => $request->user()?->can('create', User::class) ?? false,
+                    'viewBin' => $request->user()?->can('viewTrashed', User::class) ?? false,
                 ],
             ],
         ];
