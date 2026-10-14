@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreUserRequest extends FormRequest
 {
@@ -17,8 +19,8 @@ class StoreUserRequest extends FormRequest
     }
 
     /**
-     * Only the name is accepted. The email and password are generated
-     * on the server, so anything else the client sends is ignored.
+     * Only the name and role name are accepted. The email and password are
+     * generated on the server, so anything else the client sends is ignored.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -28,6 +30,7 @@ class StoreUserRequest extends FormRequest
             // Letters, spaces and full stops only, with at least one letter
             // so the generated email is never empty.
             'name' => ['required', 'string', 'max:255', 'regex:/^(?=.*[A-Za-z])[A-Za-z. ]+$/'],
+            'role' => ['required', 'string', Rule::in([Role::EMPLOYEE, Role::MANAGER, Role::ADMIN])],
         ];
     }
 
