@@ -6,12 +6,33 @@ use App\Http\Requests\StoreUserRequest;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class UserController extends Controller
 {
+    /**
+     * List users, 15 per page, sorted by name.
+     */
+    public function index(): Response
+    {
+        /** @var LengthAwarePaginator<int, User> $users */
+        $users = User::query()->with('role')->orderBy('name')->paginate(15);
+
+        return Inertia::render('users/index', [
+            // Only these fields are sent; passwords, tokens and flags never leave the server.
+            'users' => $users->through(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role->name,
+                'joined' => $user->created_at?->toDateString(),
+            ]),
+        ]);
+    }
+
     /**
      * Show the create user form.
      */
