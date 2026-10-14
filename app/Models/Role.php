@@ -19,14 +19,14 @@ use Illuminate\Support\Carbon;
 class Role extends Model
 {
     /**
-     * Raises tickets.
+     * Raises tickets and can be assigned to them.
      */
-    public const REQUESTER = 'requester';
+    public const EMPLOYEE = 'employee';
 
     /**
-     * Works on and resolves tickets.
+     * Will lead a department.
      */
-    public const AGENT = 'agent';
+    public const MANAGER = 'manager';
 
     /**
      * Manages the system.
