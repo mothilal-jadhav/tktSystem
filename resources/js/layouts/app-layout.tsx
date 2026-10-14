@@ -5,7 +5,7 @@ import { Icon } from '@/components/icons';
 import type { IconName } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { dashboard, logout } from '@/routes';
-import { create as createUser } from '@/routes/users';
+import { create as createUser, index as usersIndex } from '@/routes/users';
 import type { Permissions } from '@/types';
 
 type NavItem = {
@@ -24,7 +24,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
             { label: 'Dashboard', icon: 'dashboard', href: dashboard.url() },
             { label: 'Tickets', icon: 'ticket' },
             { label: 'Departments', icon: 'building' },
-            { label: 'Users', icon: 'users' },
+            { label: 'Users', icon: 'users', href: usersIndex.url() },
         ],
     },
     {
