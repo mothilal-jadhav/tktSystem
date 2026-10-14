@@ -8,6 +8,10 @@ declare module 'react' {
 
 declare module '@inertiajs/core' {
     export interface InertiaConfig {
+        flashDataType: {
+            // Shown once after creating a user; never stored in history.
+            createdUser?: { name: string; email: string; password: string };
+        };
         sharedPageProps: {
             name: string;
             auth: Auth;
