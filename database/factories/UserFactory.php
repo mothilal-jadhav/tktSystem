@@ -46,6 +46,14 @@ class UserFactory extends Factory
     }
 
     /**
+     * Give the user the requester role (also the default).
+     */
+    public function requester(): static
+    {
+        return $this->withRole(Role::REQUESTER);
+    }
+
+    /**
      * Give the user the agent role.
      */
     public function agent(): static

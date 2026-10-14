@@ -4,6 +4,13 @@ export type User = {
     name: string;
 };
 
+// What the signed-in user may do. Only for showing or hiding UI;
+// the server enforces every permission itself.
+export type Permissions = {
+    createUsers: boolean;
+};
+
 export type Auth = {
     user: User | null;
+    can: Permissions;
 };
