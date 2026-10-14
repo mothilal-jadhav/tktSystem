@@ -47,6 +47,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Whether the user has the given role, e.g. hasRole(Role::ADMIN).
+     */
+    public function hasRole(string $name): bool
+    {
+        return $this->role->name === $name;
+    }
+
+    /**
      * The user's role. Not mass assignable; always set explicitly on the server.
      *
      * @return BelongsTo<Role, $this>

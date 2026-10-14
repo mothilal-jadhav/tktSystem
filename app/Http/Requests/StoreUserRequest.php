@@ -2,19 +2,18 @@
 
 namespace App\Http\Requests;
 
+use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreUserRequest extends FormRequest
 {
     /**
-     * Any signed-in user may create users for now.
-     *
-     * TODO: restrict to administrators once roles exist.
+     * Only admins may create users (UserPolicy::create).
      */
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('create', User::class) ?? false;
     }
 
     /**
