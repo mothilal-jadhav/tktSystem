@@ -13,24 +13,24 @@ test('every role can see the user list', function (string $role) {
         ->get(route('users.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('users/index'));
-})->with(['requester', 'agent', 'admin']);
+})->with(['employee', 'manager', 'admin']);
 
 test('each row has only the name, email, role, joined date and permissions', function () {
-    $agent = User::factory()->agent()->create([
+    $manager = User::factory()->manager()->create([
         'name' => 'Asha Rao',
         'email' => 'asha@example.com',
         'created_at' => '2026-10-01 09:30:00',
     ]);
 
-    $this->actingAs($agent)
+    $this->actingAs($manager)
         ->get(route('users.index'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('users.data', 1)
             ->where('users.data.0', [
-                'id' => $agent->id,
+                'id' => $manager->id,
                 'name' => 'Asha Rao',
                 'email' => 'asha@example.com',
-                'role' => 'agent',
+                'role' => 'manager',
                 'joined' => '2026-10-01',
                 'can' => ['update' => false, 'delete' => false],
             ])
@@ -84,16 +84,16 @@ test('only admins get the manage users view', function (string $role, bool $canM
         ->get(route('users.index'))
         ->assertInertia(fn (Assert $page) => $page->where('canManageUsers', $canManage));
 })->with([
-    'requester' => ['requester', false],
-    'agent' => ['agent', false],
+    'employee' => ['employee', false],
+    'manager' => ['manager', false],
     'admin' => ['admin', true],
 ]);
 
-test('admins may edit and delete requesters and agents but not admins', function () {
+test('admins may edit and delete employees and managers but not admins', function () {
     $admin = User::factory()->admin()->create(['name' => 'A Admin']);
     User::factory()->admin()->create(['name' => 'B Admin']);
-    User::factory()->agent()->create(['name' => 'C Agent']);
-    User::factory()->requester()->create(['name' => 'D Requester']);
+    User::factory()->manager()->create(['name' => 'C Manager']);
+    User::factory()->employee()->create(['name' => 'D Employee']);
 
     $this->actingAs($admin)
         ->get(route('users.index'))
@@ -107,8 +107,8 @@ test('admins may edit and delete requesters and agents but not admins', function
 
 test('non-admins may not edit or delete anyone', function (string $role) {
     $viewer = User::factory()->{$role}()->create();
-    User::factory()->requester()->create();
-    User::factory()->agent()->create();
+    User::factory()->employee()->create();
+    User::factory()->manager()->create();
     User::factory()->admin()->create();
 
     $rows = $this->actingAs($viewer)->get(route('users.index'))->viewData('page')['props']['users']['data'];
@@ -116,7 +116,7 @@ test('non-admins may not edit or delete anyone', function (string $role) {
     foreach ($rows as $row) {
         expect($row['can'])->toBe(['update' => false, 'delete' => false]);
     }
-})->with(['requester', 'agent']);
+})->with(['employee', 'manager']);
 
 test('the user policy only lets admins edit or delete non-admins', function (string $viewerRole, string $targetRole, bool $allowed) {
     $viewer = User::factory()->{$viewerRole}()->create();
@@ -125,13 +125,13 @@ test('the user policy only lets admins edit or delete non-admins', function (str
     expect($viewer->can('update', $target))->toBe($allowed)
         ->and($viewer->can('delete', $target))->toBe($allowed);
 })->with([
-    'admin → requester' => ['admin', 'requester', true],
-    'admin → agent' => ['admin', 'agent', true],
+    'admin → employee' => ['admin', 'employee', true],
+    'admin → manager' => ['admin', 'manager', true],
     'admin → admin' => ['admin', 'admin', false],
-    'agent → requester' => ['agent', 'requester', false],
-    'agent → agent' => ['agent', 'agent', false],
-    'requester → requester' => ['requester', 'requester', false],
-    'requester → agent' => ['requester', 'agent', false],
+    'manager → employee' => ['manager', 'employee', false],
+    'manager → manager' => ['manager', 'manager', false],
+    'employee → employee' => ['employee', 'employee', false],
+    'employee → manager' => ['employee', 'manager', false],
 ]);
 
 test('admins cannot edit or delete themselves', function () {

@@ -11,7 +11,7 @@ beforeEach(function () {
 
 // --- Deleting (moving to the bin) ---
 
-test('admins can move requesters and agents to the bin', function (string $role) {
+test('admins can move employees and managers to the bin', function (string $role) {
     $target = User::factory()->{$role}()->create();
 
     $this->actingAs($this->admin)
@@ -21,7 +21,7 @@ test('admins can move requesters and agents to the bin', function (string $role)
 
     expect($target->fresh()->trashed())->toBeTrue();
     $this->assertSoftDeleted($target);
-})->with(['requester', 'agent']);
+})->with(['employee', 'manager']);
 
 test('a deleted user disappears from the users list', function () {
     $target = User::factory()->create(['name' => 'Asha Rao']);
@@ -56,14 +56,14 @@ test('admins cannot delete another admin or themselves', function () {
 });
 
 test('non-admins cannot delete anyone', function (string $role) {
-    $target = User::factory()->requester()->create();
+    $target = User::factory()->employee()->create();
 
     $this->actingAs(User::factory()->{$role}()->create())
         ->delete(route('users.destroy', $target))
         ->assertForbidden();
 
     expect($target->fresh()->trashed())->toBeFalse();
-})->with(['requester', 'agent']);
+})->with(['employee', 'manager']);
 
 test('guests cannot delete users', function () {
     $target = User::factory()->create();
@@ -94,10 +94,10 @@ test('a deleted user who is already signed in is signed out', function () {
 });
 
 test('a new user does not reuse the email of a user in the bin', function () {
-    $this->actingAs($this->admin)->post(route('users.store'), ['name' => 'John Doe']);
+    $this->actingAs($this->admin)->post(route('users.store'), ['name' => 'John Doe', 'role' => 'employee']);
     User::where('email', 'johndoe@gmail.com')->sole()->delete();
 
-    $this->actingAs($this->admin)->post(route('users.store'), ['name' => 'John Doe']);
+    $this->actingAs($this->admin)->post(route('users.store'), ['name' => 'John Doe', 'role' => 'employee']);
 
     expect(User::where('email', 'johndoe1@gmail.com')->exists())->toBeTrue();
 });
@@ -111,8 +111,8 @@ test('only admins see the bin', function (string $role, bool $allowed) {
         ? $response->assertOk()->assertInertia(fn (Assert $page) => $page->component('bin/index'))
         : $response->assertForbidden();
 })->with([
-    'requester' => ['requester', false],
-    'agent' => ['agent', false],
+    'employee' => ['employee', false],
+    'manager' => ['manager', false],
     'admin' => ['admin', true],
 ]);
 
@@ -121,8 +121,8 @@ test('only admins are told they can open the bin', function (string $role, bool 
         ->get(route('dashboard'))
         ->assertInertia(fn (Assert $page) => $page->where('auth.can.viewBin', $can));
 })->with([
-    'requester' => ['requester', false],
-    'agent' => ['agent', false],
+    'employee' => ['employee', false],
+    'manager' => ['manager', false],
     'admin' => ['admin', true],
 ]);
 
@@ -132,7 +132,7 @@ test('guests cannot see the bin', function () {
 
 test('the bin lists only deleted users with safe fields', function () {
     User::factory()->create(['name' => 'Still Here']);
-    $deleted = User::factory()->agent()->create(['name' => 'Asha Rao', 'email' => 'asha@example.com']);
+    $deleted = User::factory()->manager()->create(['name' => 'Asha Rao', 'email' => 'asha@example.com']);
     $deleted->delete();
 
     $response = $this->actingAs($this->admin)->get(route('bin.index'));
@@ -143,7 +143,7 @@ test('the bin lists only deleted users with safe fields', function () {
             'id' => $deleted->id,
             'name' => 'Asha Rao',
             'email' => 'asha@example.com',
-            'role' => 'agent',
+            'role' => 'manager',
             'deleted' => $deleted->fresh()->deleted_at->toDateString(),
             'can' => ['restore' => true, 'forceDelete' => true],
         ])
@@ -183,7 +183,7 @@ test('non-admins cannot restore users', function (string $role) {
         ->assertForbidden();
 
     expect($target->fresh()->trashed())->toBeTrue();
-})->with(['requester', 'agent']);
+})->with(['employee', 'manager']);
 
 test('a user who is not in the bin cannot be restored', function () {
     $target = User::factory()->create();
@@ -214,7 +214,7 @@ test('non-admins cannot permanently delete users', function (string $role) {
         ->assertForbidden();
 
     $this->assertSoftDeleted($target);
-})->with(['requester', 'agent']);
+})->with(['employee', 'manager']);
 
 test('a user who is not in the bin cannot be permanently deleted', function () {
     $target = User::factory()->create();

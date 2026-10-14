@@ -13,7 +13,7 @@ test('guests cannot open the create user page', function () {
 });
 
 test('guests cannot create users', function () {
-    $this->post(route('users.store'), ['name' => 'Asha Rao'])->assertRedirect(route('login'));
+    $this->post(route('users.store'), ['name' => 'Asha Rao', 'role' => 'employee'])->assertRedirect(route('login'));
 
     expect(User::count())->toBe(1);
 });
@@ -27,7 +27,7 @@ test('admins see the create user form', function () {
 
 test('the email is built from the letters in the name', function () {
     $this->actingAs($this->creator)
-        ->post(route('users.store'), ['name' => 'Dr. Asha  Rao'])
+        ->post(route('users.store'), ['name' => 'Dr. Asha  Rao', 'role' => 'employee'])
         ->assertRedirect(route('users.create'));
 
     $user = User::where('email', 'drasharao@gmail.com')->sole();
@@ -37,7 +37,7 @@ test('the email is built from the letters in the name', function () {
 
 test('a number is added when the generated email is already taken', function () {
     foreach (range(1, 3) as $attempt) {
-        $this->actingAs($this->creator)->post(route('users.store'), ['name' => 'John Doe']);
+        $this->actingAs($this->creator)->post(route('users.store'), ['name' => 'John Doe', 'role' => 'employee']);
     }
 
     expect(User::where('name', 'John Doe')->orderBy('id')->pluck('email')->all())
@@ -45,7 +45,7 @@ test('a number is added when the generated email is already taken', function () 
 });
 
 test('the temporary password is shown once and stored hashed', function () {
-    $this->actingAs($this->creator)->post(route('users.store'), ['name' => 'Asha Rao']);
+    $this->actingAs($this->creator)->post(route('users.store'), ['name' => 'Asha Rao', 'role' => 'employee']);
 
     $flashed = $this->actingAs($this->creator)
         ->get(route('users.create'))
@@ -66,7 +66,7 @@ test('the temporary password is shown once and stored hashed', function () {
 
 test('invalid names are rejected', function (string $name) {
     $this->actingAs($this->creator)
-        ->post(route('users.store'), ['name' => $name])
+        ->post(route('users.store'), ['name' => $name, 'role' => 'employee'])
         ->assertSessionHasErrors('name');
 
     expect(User::count())->toBe(1);
@@ -83,6 +83,7 @@ test('invalid names are rejected', function (string $name) {
 test('client-supplied email, password and flags are ignored', function () {
     $this->actingAs($this->creator)->post(route('users.store'), [
         'name' => 'Asha Rao',
+        'role' => 'employee',
         'email' => 'admin@example.com',
         'password' => 'chosen-by-client',
         'must_change_password' => false,
@@ -99,7 +100,7 @@ test('users with a temporary password cannot create users', function () {
     $this->creator->forceFill(['must_change_password' => true])->save();
 
     $this->actingAs($this->creator)
-        ->post(route('users.store'), ['name' => 'Asha Rao'])
+        ->post(route('users.store'), ['name' => 'Asha Rao', 'role' => 'employee'])
         ->assertRedirect(route('password.edit'));
 
     expect(User::count())->toBe(1);
@@ -109,22 +110,53 @@ test('non-admins cannot open the create user page', function (string $role) {
     $this->actingAs(User::factory()->{$role}()->create())
         ->get(route('users.create'))
         ->assertForbidden();
-})->with(['requester' => 'requester', 'agent' => 'agent']);
+})->with(['employee' => 'employee', 'manager' => 'manager']);
 
 test('non-admins cannot create users', function (string $role) {
     $this->actingAs(User::factory()->{$role}()->create())
-        ->post(route('users.store'), ['name' => 'Asha Rao'])
+        ->post(route('users.store'), ['name' => 'Asha Rao', 'role' => 'employee'])
         ->assertForbidden();
 
     expect(User::where('email', 'asharao@gmail.com')->exists())->toBeFalse();
-})->with(['requester' => 'requester', 'agent' => 'agent']);
+})->with(['employee' => 'employee', 'manager' => 'manager']);
 
 test('only admins are told they can create users', function (string $role, bool $can) {
     $this->actingAs(User::factory()->{$role}()->create())
         ->get(route('dashboard'))
         ->assertInertia(fn (Assert $page) => $page->where('auth.can.createUsers', $can));
 })->with([
-    'requester' => ['requester', false],
-    'agent' => ['agent', false],
+    'employee' => ['employee', false],
+    'manager' => ['manager', false],
     'admin' => ['admin', true],
+]);
+
+test('the create form receives the role options', function () {
+    $this->actingAs($this->creator)
+        ->get(route('users.create'))
+        ->assertInertia(fn (Assert $page) => $page->where('roles', ['employee', 'manager', 'admin']));
+});
+
+test('admins choose the new user\'s role', function (string $role) {
+    $this->actingAs($this->creator)
+        ->post(route('users.store'), ['name' => 'Asha Rao', 'role' => $role])
+        ->assertRedirect(route('users.create'));
+
+    expect(User::where('email', 'asharao@gmail.com')->sole()->role->name)->toBe($role);
+
+    $flashed = $this->actingAs($this->creator)->get(route('users.create'))->viewData('page')['flash']['createdUser'];
+    expect($flashed['role'])->toBe($role);
+})->with(['employee', 'manager', 'admin']);
+
+test('an invalid role is rejected', function (array $data) {
+    $this->actingAs($this->creator)
+        ->post(route('users.store'), ['name' => 'Asha Rao', ...$data])
+        ->assertSessionHasErrors('role');
+
+    expect(User::where('name', 'Asha Rao')->exists())->toBeFalse();
+})->with([
+    'missing' => [[]],
+    'empty' => [['role' => '']],
+    'unknown' => [['role' => 'superuser']],
+    'old requester role' => [['role' => 'requester']],
+    'old agent role' => [['role' => 'agent']],
 ]);
