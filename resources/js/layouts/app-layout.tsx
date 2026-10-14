@@ -29,6 +29,10 @@ const navSections: { title: string; items: NavItem[] }[] = [
     },
 ];
 
+function initial(name: string): string {
+    return name.charAt(0).toUpperCase();
+}
+
 function useDarkMode(): [boolean, () => void] {
     const [dark, setDark] = useState(() =>
         typeof document === 'undefined'
@@ -52,7 +56,13 @@ function useDarkMode(): [boolean, () => void] {
     return [dark, toggle];
 }
 
-function Sidebar({ currentUrl }: { currentUrl: string }) {
+function Sidebar({
+    currentUrl,
+    userName,
+}: {
+    currentUrl: string;
+    userName: string;
+}) {
     return (
         <div className="flex h-full flex-col bg-slate-800 text-slate-300">
             <div className="flex h-16 items-center gap-2 border-b border-slate-700 px-6">
@@ -66,11 +76,11 @@ function Sidebar({ currentUrl }: { currentUrl: string }) {
 
             <div className="flex items-center gap-3 bg-gradient-to-r from-teal-500 to-teal-400 px-6 py-4 text-white">
                 <span className="grid size-9 place-items-center rounded-full bg-white/20 text-sm font-semibold">
-                    G
+                    {initial(userName)}
                 </span>
                 <div className="leading-tight">
-                    <p className="text-sm font-semibold">Guest</p>
-                    <p className="text-xs text-white/80">Not signed in</p>
+                    <p className="text-sm font-semibold">{userName}</p>
+                    <p className="text-xs text-white/80">Signed in</p>
                 </div>
             </div>
 
@@ -118,7 +128,8 @@ function Sidebar({ currentUrl }: { currentUrl: string }) {
 }
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-    const currentUrl = usePage().url;
+    const { url: currentUrl, props } = usePage();
+    const userName = props.auth.user?.name ?? 'Guest';
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [dark, toggleDark] = useDarkMode();
 
@@ -126,7 +137,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <div className="min-h-screen bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300">
             {/* Desktop sidebar */}
             <aside className="fixed inset-y-0 left-0 hidden w-64 lg:block">
-                <Sidebar currentUrl={currentUrl} />
+                <Sidebar currentUrl={currentUrl} userName={userName} />
             </aside>
 
             {/* Mobile sidebar */}
@@ -139,7 +150,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                         onClick={() => setSidebarOpen(false)}
                     />
                     <aside className="relative h-full w-64">
-                        <Sidebar currentUrl={currentUrl} />
+                        <Sidebar currentUrl={currentUrl} userName={userName} />
                     </aside>
                 </div>
             )}
@@ -194,14 +205,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                         </button>
                         <div className="ml-2 flex items-center gap-2 border-l border-slate-200 pl-3 dark:border-slate-700">
                             <span className="grid size-8 place-items-center rounded-full bg-indigo-500 text-sm font-semibold text-white">
-                                G
+                                {initial(userName)}
                             </span>
                             <span className="hidden text-sm leading-tight sm:block">
                                 <span className="block font-medium text-slate-800 dark:text-white">
-                                    Guest
-                                </span>
-                                <span className="block text-xs text-slate-500">
-                                    Visitor
+                                    {userName}
                                 </span>
                             </span>
                         </div>
