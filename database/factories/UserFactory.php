@@ -31,7 +31,7 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            'role_id' => fn () => Role::where('name', Role::REQUESTER)->value('id'),
+            'role_id' => fn () => Role::where('name', Role::EMPLOYEE)->value('id'),
         ];
     }
 
@@ -46,19 +46,19 @@ class UserFactory extends Factory
     }
 
     /**
-     * Give the user the requester role (also the default).
+     * Give the user the employee role (also the default).
      */
-    public function requester(): static
+    public function employee(): static
     {
-        return $this->withRole(Role::REQUESTER);
+        return $this->withRole(Role::EMPLOYEE);
     }
 
     /**
-     * Give the user the agent role.
+     * Give the user the manager role.
      */
-    public function agent(): static
+    public function manager(): static
     {
-        return $this->withRole(Role::AGENT);
+        return $this->withRole(Role::MANAGER);
     }
 
     /**
