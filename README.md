@@ -106,7 +106,7 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 
 - Permissions are enforced on the server with a Laravel **policy**: `App\Policies\UserPolicy::create()` allows only users whose role is admin (`$user->hasRole(Role::ADMIN)`).
 - `UserPolicy::viewAny()` lets every signed-in user see the user list.
-- `UserPolicy::update()` and `delete()` let admins edit or delete employees and managers, but never another admin (or themselves). Delete works (see the Bin below); edit isn't built yet, so for editing the rule only decides whether the button appears.
+- `UserPolicy::update()` and `delete()` let admins edit or delete employees and managers, but never another admin (or themselves). Both work: Edit changes a user's role (see below), and Delete moves them to the Bin.
 - `UserPolicy::viewTrashed()`, `restore()`, and `forceDelete()` let only admins open the bin and restore or permanently delete non-admin users that are in it.
 - Both `GET /users/create` and `POST /users` check it with the route's `can('create', User::class)` middleware, and `StoreUserRequest::authorize()` checks it again. Employees and managers get **403 Forbidden**.
 - The result is also shared with the frontend as `auth.can.createUsers`, which only hides the **Create user** sidebar link from non-admins. Hiding the link is cosmetic; the server check is the real protection.
@@ -114,7 +114,7 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 ### 9. Users list
 
 - The **Users** sidebar item opens `/users` (`users.index`), which every signed-in user can see (`UserPolicy::viewAny()`).
-- Every viewer sees each user's name and email. **Admins** also get an Actions column with **Edit** (not functional yet) and **Delete** buttons on employee and manager rows only; admin rows show a dash. **Employees and managers** instead see **Department** (empty until departments exist) and **Joined** columns.
+- Every viewer sees each user's name and email. **Admins** also get an Actions column with **Edit** and **Delete** buttons on employee and manager rows only; admin rows show a dash. **Employees and managers** instead see **Department** (empty until departments exist) and **Joined** columns.
 - Each row carries `can.update` and `can.delete` flags computed by `UserPolicy` on the server, and the page gets a `canManageUsers` flag. These only control what's shown.
 - Users are sorted by name with 15 per page and Prev/Next links. Pagination happens on the server.
 - Roles are eager-loaded (`with('role')`), so the page runs one extra query instead of one per user.
@@ -133,6 +133,13 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 - A short success message (Inertia flash `status`) appears at the top of the page after deleting, restoring, or deleting forever.
 - Users in the bin keep their email, so a newly created user with the same name gets the next number (e.g. `johndoe1@gmail.com`).
 
+### 11. Editing a user's role
+
+- **Edit** on the users list opens `/users/{user}/edit` (`users.edit`). The page shows the user's name and email as read-only text and a **Role** dropdown (employee, manager, admin) set to their current role.
+- **Save role** sends `PUT /users/{user}` (`users.update`), validated by `UpdateUserRequest`. Only `role` is accepted, checked with `Rule::in`; the name, email, `role_id`, and other fields are ignored. The user is redirected to the users list with a message such as "Asha Rao is now manager."
+- Both routes use `UserPolicy::update()`: admins only, never on another admin or themselves (403). Users in the bin can't be edited (404).
+- The role dropdown is shared with Create user as `resources/js/components/role-select.tsx`.
+
 ### Shared UI
 
 - Login, change-password, and create-user pages share the dashboard's style: slate backgrounds, indigo accents, white cards, and dark mode support.
@@ -145,7 +152,8 @@ app/Http/Controllers/DashboardController.php            Dashboard controller (sa
 app/Http/Controllers/UserController.php                 Create user (generated email + password)
 app/Http/Controllers/Auth/AuthenticatedSessionController.php   Login and logout
 app/Http/Controllers/Auth/PasswordController.php        Forced password change
-app/Http/Requests/StoreUserRequest.php                  Create user validation (name regex)
+app/Http/Requests/StoreUserRequest.php                  Create user validation (name regex, role)
+app/Http/Requests/UpdateUserRequest.php                 Edit user validation (role only)
 app/Http/Requests/Auth/LoginRequest.php                 Login validation, attempt, rate limiting
 app/Http/Requests/Auth/UpdatePasswordRequest.php        New password validation
 app/Http/Middleware/EnsurePasswordIsChanged.php         Redirects users with a temporary password
@@ -165,11 +173,13 @@ resources/js/pages/auth/login.tsx                       Login page
 resources/js/pages/auth/change-password.tsx             Set a new password page
 resources/js/pages/users/create.tsx                     Create user page
 resources/js/pages/users/index.tsx                      Users list page
+resources/js/pages/users/edit.tsx                       Edit user page (role only)
 resources/js/pages/bin/index.tsx                        Bin page (deleted users)
 resources/js/pages/dashboard.tsx                        Dashboard page
 resources/js/components/dashboard/                      Card, stat card, bar chart, ring gauge,
                                                         department bars, recent tickets table
 resources/js/components/form-field.tsx                  Labelled input with validation error
+resources/js/components/role-select.tsx                 Role dropdown (create and edit user)
 resources/js/components/page-link.tsx                   Prev/Next pagination link
 resources/js/components/icons.tsx                       Inline SVG icons
 resources/js/types/                                     Dashboard, auth, flash, and user list types
@@ -179,6 +189,7 @@ tests/Feature/Auth/AuthenticationTest.php               Login, logout, registrat
 tests/Feature/Auth/PasswordChangeTest.php               Forced password change tests
 tests/Feature/RoleTest.php                              Role tests
 tests/Feature/UserListTest.php                          Users list tests
+tests/Feature/UserEditTest.php                          Edit user (role) tests
 tests/Feature/UserBinTest.php                           Delete, bin, restore, and delete-forever tests
 ```
 
@@ -239,6 +250,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - `tests/Feature/DashboardTest.php`: signed-in users see the `dashboard` component; it receives every expected prop with the right types (6 stats, 12 days of chart data, a resolution rate between 0 and 100, department counts, and recent tickets); the props never include sensitive fields such as `password`, `remember_token`, `email`, or `internal_note`; guests are redirected to the login page.
 - `tests/Feature/Auth/AuthenticationTest.php`: the login page renders; valid credentials sign in and regenerate the session ID; a wrong password and an unknown email get the same error; invalid input is rejected; the remember cookie is set only when "Remember me" is ticked; repeated failures lock the account out; users return to the page they asked for; signed-in users are kept away from the login page; logout works, is POST-only, and is not available to guests; registration routes are gone; only the user's `id` and `name` are shared.
 - `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; employees and managers get 403 on both; the form receives the role options; admins can create employees, managers, and admins; missing, unknown, or old (requester/agent) roles are rejected; only admins are told they can create users; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long); client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
+- `tests/Feature/UserEditTest.php`: admins see the edit form with the user and role options; admins can set each role and a message is flashed; name, email, `role_id`, and other fields can't be changed; missing, unknown, or old roles are rejected; admins can't edit another admin or themselves; employees, managers, and guests can't edit; users in the bin can't be edited.
 - `tests/Feature/UserBinTest.php`: admins can move employees and managers to the bin, but not admins or themselves; employees, managers, and guests can't delete; deleted users vanish from the list, can't sign in, and are signed out if already signed in; a success message is flashed; new users don't reuse a binned user's email; only admins can see the bin, which lists only deleted users with safe fields; admins can restore (and the user can sign in again) or delete forever, non-admins can't, and neither works on users that aren't in the bin.
 - `tests/Feature/UserListTest.php`: guests are redirected; employees, managers, and admins can all see the list; each row has exactly name, email, role, joined date, and permission flags; no sensitive fields are sent; users are sorted by name, 15 per page; users with a temporary password are sent to change it first; only admins get the manage view; the policy lets admins edit or delete employees and managers but not admins or themselves, and never lets employees or managers.
 - `tests/Feature/RoleTest.php`: the employee, manager, and admin roles exist with unique names and the old requester/agent names are gone; a raw `role_id` sent by the client is ignored; `role_id` can't be mass-assigned; the user/role relationships and factory states work; a role in use can't be deleted.

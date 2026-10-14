@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -81,6 +82,35 @@ class UserController extends Controller
         ]);
 
         return redirect()->route('users.create');
+    }
+
+    /**
+     * Show the form for changing a user's role.
+     */
+    public function edit(User $user): Response
+    {
+        return Inertia::render('users/edit', [
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role->name,
+            ],
+            'roles' => Role::orderBy('id')->pluck('name'),
+        ]);
+    }
+
+    /**
+     * Change a user's role. The name and email are not editable.
+     */
+    public function update(UpdateUserRequest $request, User $user): RedirectResponse
+    {
+        $user->role()->associate(Role::where('name', $request->validated('role'))->sole());
+        $user->save();
+
+        Inertia::flash('status', "{$user->name} is now {$user->role->name}.");
+
+        return redirect()->route('users.index');
     }
 
     /**

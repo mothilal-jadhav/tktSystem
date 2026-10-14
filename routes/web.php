@@ -38,6 +38,14 @@ Route::middleware('auth')->group(function () {
             ->can('create', User::class)
             ->name('users.store');
 
+        // Admins only, and never another admin (UserPolicy::update).
+        Route::get('/users/{user}/edit', [UserController::class, 'edit'])
+            ->can('update', 'user')
+            ->name('users.edit');
+        Route::put('/users/{user}', [UserController::class, 'update'])
+            ->can('update', 'user')
+            ->name('users.update');
+
         // Admins only, and never another admin (UserPolicy::delete).
         Route::delete('/users/{user}', [UserController::class, 'destroy'])
             ->can('delete', 'user')

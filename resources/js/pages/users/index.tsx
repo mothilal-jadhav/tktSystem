@@ -3,7 +3,7 @@ import { Card } from '@/components/dashboard/card';
 import { Icon } from '@/components/icons';
 import { PageLink } from '@/components/page-link';
 import AppLayout from '@/layouts/app-layout';
-import { create, destroy } from '@/routes/users';
+import { create, destroy, edit } from '@/routes/users';
 import type { Paginator, UserListItem } from '@/types';
 
 function formatJoined(value: string | null): string {
@@ -23,18 +23,17 @@ function UserActions({ user }: { user: UserListItem }) {
         return <span className="text-slate-400">—</span>;
     }
 
-    // Edit is a placeholder until editing is built.
     return (
         <div className="flex justify-end gap-2">
             {user.can.update && (
-                <button
-                    type="button"
+                <Link
+                    href={edit(user.id)}
                     aria-label={`Edit ${user.name}`}
                     className="flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
                 >
                     <Icon name="pencil" className="size-3.5" />
                     Edit
-                </button>
+                </Link>
             )}
             {user.can.delete && (
                 <Link
