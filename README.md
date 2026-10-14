@@ -102,19 +102,32 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 
 - Permissions are enforced on the server with a Laravel **policy**: `App\Policies\UserPolicy::create()` allows only users whose role is admin (`$user->hasRole(Role::ADMIN)`).
 - `UserPolicy::viewAny()` lets every signed-in user see the user list.
-- `UserPolicy::update()` and `delete()` let admins edit or delete requesters and agents, but never another admin (or themselves). The edit and delete actions aren't built yet; for now these rules only decide which buttons appear.
+- `UserPolicy::update()` and `delete()` let admins edit or delete requesters and agents, but never another admin (or themselves). Delete works (see the Bin below); edit isn't built yet, so for editing the rule only decides whether the button appears.
+- `UserPolicy::viewTrashed()`, `restore()`, and `forceDelete()` let only admins open the bin and restore or permanently delete non-admin users that are in it.
 - Both `GET /users/create` and `POST /users` check it with the route's `can('create', User::class)` middleware, and `StoreUserRequest::authorize()` checks it again. Requesters and agents get **403 Forbidden**.
 - The result is also shared with the frontend as `auth.can.createUsers`, which only hides the **Create user** sidebar link from non-admins. Hiding the link is cosmetic; the server check is the real protection.
 
 ### 9. Users list
 
 - The **Users** sidebar item opens `/users` (`users.index`), which every signed-in user can see (`UserPolicy::viewAny()`).
-- Every viewer sees each user's name and email. **Admins** also get an Actions column with **Edit** and **Delete** buttons (not functional yet) on requester and agent rows only; admin rows show a dash. **Requesters and agents** instead see **Department** (empty until departments exist) and **Joined** columns.
+- Every viewer sees each user's name and email. **Admins** also get an Actions column with **Edit** (not functional yet) and **Delete** buttons on requester and agent rows only; admin rows show a dash. **Requesters and agents** instead see **Department** (empty until departments exist) and **Joined** columns.
 - Each row carries `can.update` and `can.delete` flags computed by `UserPolicy` on the server, and the page gets a `canManageUsers` flag. These only control what's shown.
 - Users are sorted by name with 15 per page and Prev/Next links. Pagination happens on the server.
 - Roles are eager-loaded (`with('role')`), so the page runs one extra query instead of one per user.
 - Each row is built field by field, so only `id`, `name`, `email`, `role`, and `joined` reach the browser.
 - Admins also see a **Create user** button on this page.
+
+### 10. Deleting users and the Bin
+
+- **Delete** on the users list asks for confirmation, then sends `DELETE /users/{user}` (`users.destroy`). The user is **soft-deleted**: a `deleted_at` timestamp is set instead of removing the row (`SoftDeletes` on the `User` model, added by a migration).
+- A deleted user disappears from the users list and **can't sign in**. If they're already signed in, their session ends on their next request, because Laravel no longer finds them.
+- Deleted users appear in the **Bin**, a sidebar item below Settings with a trash icon, at `/bin` (`bin.index`). Only admins see the link (`auth.can.viewBin`) or can open the page.
+- The Bin lists name, email, role, and deleted date, most recently deleted first, 15 per page. Each row has:
+    - **Restore** (`PATCH /bin/{user}/restore`): brings the user back; they can sign in again.
+    - **Delete forever** (`DELETE /bin/{user}`), after a confirmation: permanently removes the row. This can't be undone.
+- The bin routes use `withTrashed()` so `{user}` can match deleted users, and the policy only allows restore or delete-forever on users that are actually in the bin.
+- A short success message (Inertia flash `status`) appears at the top of the page after deleting, restoring, or deleting forever.
+- Users in the bin keep their email, so a newly created user with the same name gets the next number (e.g. `johndoe1@gmail.com`).
 
 ### Shared UI
 
@@ -134,10 +147,12 @@ app/Http/Requests/Auth/UpdatePasswordRequest.php        New password validation
 app/Http/Middleware/EnsurePasswordIsChanged.php         Redirects users with a temporary password
 app/Http/Middleware/HandleInertiaRequests.php           Shared props (user id/name, auth.can flags)
 app/Models/Role.php                                     Role model and role name constants
-app/Policies/UserPolicy.php                             Who may list users (everyone) and create them (admins)
+app/Policies/UserPolicy.php                             Who may list, create, delete, and restore users
+app/Http/Controllers/UserBinController.php              Bin: list, restore, and permanently delete users
 database/migrations/..._add_must_change_password_to_users_table.php
 database/migrations/..._create_roles_table.php          Roles table + the three role rows
 database/migrations/..._add_role_id_to_users_table.php  users.role_id (existing users become admin)
+database/migrations/..._add_soft_deletes_to_users_table.php  users.deleted_at (the bin)
 routes/web.php                                          Web routes
 resources/views/app.blade.php                           Root HTML shell + theme bootstrap script
 resources/js/app.tsx                                    Inertia/React entry point
@@ -146,10 +161,12 @@ resources/js/pages/auth/login.tsx                       Login page
 resources/js/pages/auth/change-password.tsx             Set a new password page
 resources/js/pages/users/create.tsx                     Create user page
 resources/js/pages/users/index.tsx                      Users list page
+resources/js/pages/bin/index.tsx                        Bin page (deleted users)
 resources/js/pages/dashboard.tsx                        Dashboard page
 resources/js/components/dashboard/                      Card, stat card, bar chart, ring gauge,
                                                         department bars, recent tickets table
 resources/js/components/form-field.tsx                  Labelled input with validation error
+resources/js/components/page-link.tsx                   Prev/Next pagination link
 resources/js/components/icons.tsx                       Inline SVG icons
 resources/js/types/                                     Dashboard, auth, flash, and user list types
 tests/Feature/DashboardTest.php                         Dashboard tests
@@ -158,6 +175,7 @@ tests/Feature/Auth/AuthenticationTest.php               Login, logout, registrat
 tests/Feature/Auth/PasswordChangeTest.php               Forced password change tests
 tests/Feature/RoleTest.php                              Role tests
 tests/Feature/UserListTest.php                          Users list tests
+tests/Feature/UserBinTest.php                           Delete, bin, restore, and delete-forever tests
 ```
 
 ## Getting started
@@ -217,6 +235,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - `tests/Feature/DashboardTest.php`: signed-in users see the `dashboard` component; it receives every expected prop with the right types (6 stats, 12 days of chart data, a resolution rate between 0 and 100, department counts, and recent tickets); the props never include sensitive fields such as `password`, `remember_token`, `email`, or `internal_note`; guests are redirected to the login page.
 - `tests/Feature/Auth/AuthenticationTest.php`: the login page renders; valid credentials sign in and regenerate the session ID; a wrong password and an unknown email get the same error; invalid input is rejected; the remember cookie is set only when "Remember me" is ticked; repeated failures lock the account out; users return to the page they asked for; signed-in users are kept away from the login page; logout works, is POST-only, and is not available to guests; registration routes are gone; only the user's `id` and `name` are shared.
 - `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; requesters and agents get 403 on both; only admins are told they can create users; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long); client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
+- `tests/Feature/UserBinTest.php`: admins can move requesters and agents to the bin, but not admins or themselves; requesters, agents, and guests can't delete; deleted users vanish from the list, can't sign in, and are signed out if already signed in; a success message is flashed; new users don't reuse a binned user's email; only admins can see the bin, which lists only deleted users with safe fields; admins can restore (and the user can sign in again) or delete forever, non-admins can't, and neither works on users that aren't in the bin.
 - `tests/Feature/UserListTest.php`: guests are redirected; requesters, agents, and admins can all see the list; each row has exactly name, email, role, joined date, and permission flags; no sensitive fields are sent; users are sorted by name, 15 per page; users with a temporary password are sent to change it first; only admins get the manage view; the policy lets admins edit or delete requesters and agents but not admins or themselves, and never lets requesters or agents.
 - `tests/Feature/RoleTest.php`: the three roles exist with unique names; users created from the form are requesters, even when the client sends a role; `role_id` can't be mass-assigned; the user/role relationships and factory states work; a role in use can't be deleted.
 - `tests/Feature/Auth/PasswordChangeTest.php`: users with a temporary password are redirected from protected pages; signing in with one leads to the change page; they can still sign out; the new password is validated (missing, too short, mismatched, same as temporary); a successful change lifts the restriction; other users skip the page; guests can't reach it.
@@ -228,6 +247,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - Only the user's `id` and `name`, plus the `auth.can` flags, are shared with the frontend. A test makes sure dashboard props don't leak sensitive fields.
 - When creating users, only the name is accepted from the client; the email, password, and `must_change_password` flag are set on the server. The temporary password is stored hashed and shown once.
 - Creating users is restricted to admins by `UserPolicy`, checked on both routes and in the form request, with negative tests for requesters and agents.
+- Deleting is a soft delete, so a mistaken delete can be undone from the Bin; only admins can delete forever, after a confirmation.
 - **Known gap:** generated `@gmail.com` addresses belong to real Gmail users, so the domain should be changed before email notifications are built.
 - Planned rules for every feature: validate all input on the server, enforce authorization with Policies/Gates, guard against IDOR, never trust client-supplied IDs, roles, or ownership, keep internal notes and private attachments hidden from unauthorized users, and make sure uploaded files can never be executed.
 

@@ -8,6 +8,7 @@ export type User = {
 // the server enforces every permission itself.
 export type Permissions = {
     createUsers: boolean;
+    viewBin: boolean;
 };
 
 export type Auth = {

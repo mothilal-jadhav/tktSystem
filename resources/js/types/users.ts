@@ -11,6 +11,19 @@ export type UserListItem = {
     };
 };
 
+export type BinUser = {
+    id: number;
+    name: string;
+    email: string;
+    role: 'requester' | 'agent' | 'admin';
+    deleted: string | null;
+    // Decided by UserPolicy on the server; only used to show or hide buttons.
+    can: {
+        restore: boolean;
+        forceDelete: boolean;
+    };
+};
+
 // The fields of Laravel's LengthAwarePaginator that the UI uses.
 export type Paginator<T> = {
     data: T[];

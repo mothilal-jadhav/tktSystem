@@ -1,9 +1,9 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Card } from '@/components/dashboard/card';
 import { Icon } from '@/components/icons';
+import { PageLink } from '@/components/page-link';
 import AppLayout from '@/layouts/app-layout';
-import { cn } from '@/lib/utils';
-import { create } from '@/routes/users';
+import { create, destroy } from '@/routes/users';
 import type { Paginator, UserListItem } from '@/types';
 
 function formatJoined(value: string | null): string {
@@ -23,7 +23,7 @@ function UserActions({ user }: { user: UserListItem }) {
         return <span className="text-slate-400">—</span>;
     }
 
-    // Placeholders: edit and delete are not built yet.
+    // Edit is a placeholder until editing is built.
     return (
         <div className="flex justify-end gap-2">
             {user.can.update && (
@@ -37,45 +37,23 @@ function UserActions({ user }: { user: UserListItem }) {
                 </button>
             )}
             {user.can.delete && (
-                <button
-                    type="button"
+                <Link
+                    href={destroy(user.id)}
+                    as="button"
+                    preserveScroll
+                    onBefore={() =>
+                        window.confirm(
+                            `Move ${user.name} to the bin? They will no longer be able to sign in.`,
+                        )
+                    }
                     aria-label={`Delete ${user.name}`}
                     className="flex items-center gap-1.5 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/40 dark:text-rose-400 dark:hover:bg-rose-500/10"
                 >
                     <Icon name="trash" className="size-3.5" />
                     Delete
-                </button>
+                </Link>
             )}
         </div>
-    );
-}
-
-function PageLink({ href, label }: { href: string | null; label: string }) {
-    const className =
-        'rounded-md border border-slate-200 px-3 py-1.5 text-sm dark:border-slate-700';
-
-    if (!href) {
-        return (
-            <span
-                aria-disabled="true"
-                className={cn(className, 'cursor-not-allowed text-slate-400')}
-            >
-                {label}
-            </span>
-        );
-    }
-
-    return (
-        <Link
-            href={href}
-            preserveScroll
-            className={cn(
-                className,
-                'hover:bg-slate-100 dark:hover:bg-slate-700',
-            )}
-        >
-            {label}
-        </Link>
     );
 }
 
