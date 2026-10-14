@@ -6,25 +6,6 @@ import { cn } from '@/lib/utils';
 import { create } from '@/routes/users';
 import type { Paginator, UserListItem } from '@/types';
 
-const roleStyles: Record<UserListItem['role'], string> = {
-    requester:
-        'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
-    agent: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
-    admin: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300',
-};
-
-function formatJoined(value: string | null): string {
-    if (!value) {
-        return '—';
-    }
-
-    return new Date(value).toLocaleDateString(undefined, {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    });
-}
-
 function PageLink({ href, label }: { href: string | null; label: string }) {
     const className =
         'rounded-md border border-slate-200 px-3 py-1.5 text-sm dark:border-slate-700';
@@ -91,11 +72,8 @@ export default function UsersIndex({
                                 <th className="px-5 py-2 font-semibold">
                                     Email
                                 </th>
-                                <th className="px-5 py-2 font-semibold">
-                                    Role
-                                </th>
-                                <th className="px-5 py-2 font-semibold">
-                                    Joined
+                                <th className="px-5 py-2 text-right font-semibold">
+                                    Actions
                                 </th>
                             </tr>
                         </thead>
@@ -110,17 +88,31 @@ export default function UsersIndex({
                                     </td>
                                     <td className="px-5 py-3">{user.email}</td>
                                     <td className="px-5 py-3">
-                                        <span
-                                            className={cn(
-                                                'inline-block rounded px-2 py-0.5 text-xs font-medium capitalize',
-                                                roleStyles[user.role],
-                                            )}
-                                        >
-                                            {user.role}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-3 whitespace-nowrap text-slate-500">
-                                        {formatJoined(user.joined)}
+                                        {/* Placeholders: edit and delete are not built yet. */}
+                                        <div className="flex justify-end gap-2">
+                                            <button
+                                                type="button"
+                                                aria-label={`Edit ${user.name}`}
+                                                className="flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
+                                            >
+                                                <Icon
+                                                    name="pencil"
+                                                    className="size-3.5"
+                                                />
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label={`Delete ${user.name}`}
+                                                className="flex items-center gap-1.5 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/40 dark:text-rose-400 dark:hover:bg-rose-500/10"
+                                            >
+                                                <Icon
+                                                    name="trash"
+                                                    className="size-3.5"
+                                                />
+                                                Delete
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

@@ -108,7 +108,7 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 ### 9. Users list
 
 - The **Users** sidebar item opens `/users` (`users.index`), which every signed-in user can see (`UserPolicy::viewAny()`).
-- It shows each user's name, email, role (as a coloured badge), and joined date, sorted by name with 15 per page and Prev/Next links. Pagination happens on the server.
+- It shows each user's name and email, plus **Edit** and **Delete** buttons that don't do anything yet. Users are sorted by name with 15 per page and Prev/Next links. Pagination happens on the server.
 - Roles are eager-loaded (`with('role')`), so the page runs one extra query instead of one per user.
 - Each row is built field by field, so only `id`, `name`, `email`, `role`, and `joined` reach the browser.
 - Admins also see a **Create user** button on this page.
