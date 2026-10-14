@@ -6,11 +6,14 @@ import type { IconName } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { dashboard, logout } from '@/routes';
 import { create as createUser } from '@/routes/users';
+import type { Permissions } from '@/types';
 
 type NavItem = {
     label: string;
     icon: IconName;
     href?: string;
+    // Hidden unless the server says the user has this permission.
+    permission?: keyof Permissions;
 };
 
 // Items without an href are features that haven't been built yet.
@@ -27,7 +30,12 @@ const navSections: { title: string; items: NavItem[] }[] = [
     {
         title: 'Admin',
         items: [
-            { label: 'Create user', icon: 'userPlus', href: createUser.url() },
+            {
+                label: 'Create user',
+                icon: 'userPlus',
+                href: createUser.url(),
+                permission: 'createUsers',
+            },
             { label: 'Settings', icon: 'settings' },
         ],
     },
@@ -63,9 +71,11 @@ function useDarkMode(): [boolean, () => void] {
 function Sidebar({
     currentUrl,
     userName,
+    can,
 }: {
     currentUrl: string;
     userName: string;
+    can: Permissions;
 }) {
     return (
         <div className="flex h-full flex-col bg-slate-800 text-slate-300">
@@ -95,34 +105,40 @@ function Sidebar({
                             {section.title}
                         </p>
                         <ul className="space-y-1">
-                            {section.items.map((item) => (
-                                <li key={item.label}>
-                                    {item.href ? (
-                                        <Link
-                                            href={item.href}
-                                            className={cn(
-                                                'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition hover:bg-slate-700 hover:text-white',
-                                                currentUrl === item.href &&
-                                                    'bg-slate-700 text-white',
-                                            )}
-                                        >
-                                            <Icon name={item.icon} />
-                                            {item.label}
-                                        </Link>
-                                    ) : (
-                                        <span
-                                            aria-disabled="true"
-                                            className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-500"
-                                        >
-                                            <Icon name={item.icon} />
-                                            {item.label}
-                                            <span className="ml-auto rounded bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">
-                                                soon
+                            {section.items
+                                .filter(
+                                    (item) =>
+                                        !item.permission ||
+                                        can[item.permission],
+                                )
+                                .map((item) => (
+                                    <li key={item.label}>
+                                        {item.href ? (
+                                            <Link
+                                                href={item.href}
+                                                className={cn(
+                                                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition hover:bg-slate-700 hover:text-white',
+                                                    currentUrl === item.href &&
+                                                        'bg-slate-700 text-white',
+                                                )}
+                                            >
+                                                <Icon name={item.icon} />
+                                                {item.label}
+                                            </Link>
+                                        ) : (
+                                            <span
+                                                aria-disabled="true"
+                                                className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-500"
+                                            >
+                                                <Icon name={item.icon} />
+                                                {item.label}
+                                                <span className="ml-auto rounded bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">
+                                                    soon
+                                                </span>
                                             </span>
-                                        </span>
-                                    )}
-                                </li>
-                            ))}
+                                        )}
+                                    </li>
+                                ))}
                         </ul>
                     </div>
                 ))}
@@ -134,6 +150,7 @@ function Sidebar({
 export default function AppLayout({ children }: { children: ReactNode }) {
     const { url: currentUrl, props } = usePage();
     const userName = props.auth.user?.name ?? 'Guest';
+    const can = props.auth.can;
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [dark, toggleDark] = useDarkMode();
 
@@ -141,7 +158,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <div className="min-h-screen bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300">
             {/* Desktop sidebar */}
             <aside className="fixed inset-y-0 left-0 hidden w-64 lg:block">
-                <Sidebar currentUrl={currentUrl} userName={userName} />
+                <Sidebar
+                    currentUrl={currentUrl}
+                    userName={userName}
+                    can={can}
+                />
             </aside>
 
             {/* Mobile sidebar */}
@@ -154,7 +175,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                         onClick={() => setSidebarOpen(false)}
                     />
                     <aside className="relative h-full w-64">
-                        <Sidebar currentUrl={currentUrl} userName={userName} />
+                        <Sidebar
+                            currentUrl={currentUrl}
+                            userName={userName}
+                            can={can}
+                        />
                     </aside>
                 </div>
             )}

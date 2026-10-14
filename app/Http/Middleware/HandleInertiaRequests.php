@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -41,6 +42,10 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 // Share only what the UI needs, not the whole model.
                 'user' => $request->user()?->only(['id', 'name']),
+                // Only used to show or hide UI; the server checks every request itself.
+                'can' => [
+                    'createUsers' => $request->user()?->can('create', User::class) ?? false,
+                ],
             ],
         ];
     }
