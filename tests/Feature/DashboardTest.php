@@ -1,16 +1,23 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Support\Arr;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('the home page renders the dashboard', function () {
-    $this->get(route('dashboard'))
+beforeEach(function () {
+    $this->user = User::factory()->create();
+});
+
+test('signed-in users see the dashboard', function () {
+    $this->actingAs($this->user)
+        ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('dashboard'));
 });
 
 test('the dashboard receives its statistics as props', function () {
-    $this->get(route('dashboard'))
+    $this->actingAs($this->user)
+        ->get(route('dashboard'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('stats', 6, fn (Assert $stat) => $stat
                 ->whereType('label', 'string')
@@ -33,7 +40,7 @@ test('the dashboard receives its statistics as props', function () {
 });
 
 test('the dashboard props do not expose sensitive fields', function () {
-    $props = $this->get(route('dashboard'))->viewData('page')['props'];
+    $props = $this->actingAs($this->user)->get(route('dashboard'))->viewData('page')['props'];
 
     $keys = array_keys(Arr::dot($props));
 
@@ -42,5 +49,6 @@ test('the dashboard props do not expose sensitive fields', function () {
     }
 });
 
-test('guests are redirected to the login page')
-    ->todo('Add once authentication exists: protect the dashboard with the auth middleware.');
+test('guests are redirected away from the dashboard', function () {
+    $this->get(route('dashboard'))->assertRedirect(route('register'));
+});
