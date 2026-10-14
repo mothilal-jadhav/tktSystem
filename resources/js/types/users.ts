@@ -1,8 +1,10 @@
+export type RoleName = 'employee' | 'manager' | 'admin';
+
 export type UserListItem = {
     id: number;
     name: string;
     email: string;
-    role: 'requester' | 'agent' | 'admin';
+    role: RoleName;
     joined: string | null;
     // Decided by UserPolicy on the server; only used to show or hide buttons.
     can: {
@@ -15,7 +17,7 @@ export type BinUser = {
     id: number;
     name: string;
     email: string;
-    role: 'requester' | 'agent' | 'admin';
+    role: RoleName;
     deleted: string | null;
     // Decided by UserPolicy on the server; only used to show or hide buttons.
     can: {

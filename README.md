@@ -74,12 +74,14 @@ A public registration page was first built on `/`. Because tktSystem is an inter
 
 ### 5. Create user
 
-A **Create user** item in the sidebar's Admin section opens `/users/create` (`UserController`, validated by `StoreUserRequest`). The form takes only a name:
+A **Create user** item in the sidebar's Admin section opens `/users/create` (`UserController`, validated by `StoreUserRequest`). The form takes a name and a role:
 
 - **Name:** required, max 255 characters, and must match `/^(?=.*[A-Za-z])[A-Za-z. ]+$/`, meaning letters, spaces, and full stops only, with at least one letter.
+- **Role:** a dropdown of **employee** (the default), **manager**, or **admin**, loaded from the `roles` table. The server only accepts one of those three names (`Rule::in`); a raw `role_id` is never read. The success panel shows the chosen role.
 - **Email:** generated on the server from the letters in the name, lowercased, plus `@gmail.com`. For example, `Dr. Asha  Rao` becomes `drasharao@gmail.com`. If that address is taken, a number is added (`drasharao1@gmail.com`, `drasharao2@gmail.com`, …).
 - **Password:** a random 16-character string from `Str::password(16)`, stored hashed. The plain password is shown to the creator **once**, using Inertia flash data, which is not kept in browser history. It is never stored or logged.
-- Any `email`, `password`, or `must_change_password` value sent by the client is ignored.
+- Any `email`, `password`, `must_change_password`, or `role_id` value sent by the client is ignored.
+- Choosing **admin** makes a user who can't be edited or deleted in the app afterwards, because admins can't act on other admins.
 - Only **admins** can create users (see [Permissions](#8-permissions)).
 
 ### 6. Forced password change on first login
@@ -91,26 +93,28 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 
 ### 7. Roles
 
-- Three roles live in a `roles` table: **requester** (raises tickets), **agent** (works on and resolves them), and **admin** (manages the system). The rows are inserted by the migration itself, because the app can't run without them. Their names are constants on `App\Models\Role` (`Role::REQUESTER`, `Role::AGENT`, `Role::ADMIN`).
+- Three organisational roles live in a `roles` table: **employee** (raises tickets and can be assigned to them), **manager** (will lead a department), and **admin** (manages the system). Their names are constants on `App\Models\Role` (`Role::EMPLOYEE`, `Role::MANAGER`, `Role::ADMIN`).
+- **Requester and agent are not user roles.** They describe someone's part in a single ticket: whoever raises a ticket is its requester, and whoever from the assigned department works on it is its agent. The same person can be both on different tickets. These will be columns on tickets, not roles.
+- The roles were first created as requester, agent, and admin. A later migration renamed them in place (requester → employee, agent → manager), so their ids and every `users.role_id` stayed the same.
 - Every user has exactly one role through a required `users.role_id` foreign key. A role can't be deleted while users still have it.
-- Users who already existed when roles were added became **admin**. Users created from the Create user form are always **requester**.
+- Users who already existed when roles were added became **admin**. Users created from the Create user form get the role the admin picks.
 - `role_id` is not mass-assignable, so a role sent by the client is ignored.
-- The factory defaults to requester, with `agent()` and `admin()` states; the seeded `test@example.com` user is an admin.
+- The factory defaults to employee, with `employee()`, `manager()`, and `admin()` states; the seeded `test@example.com` user is an admin.
 - Roles are used for permissions; see below.
 
 ### 8. Permissions
 
 - Permissions are enforced on the server with a Laravel **policy**: `App\Policies\UserPolicy::create()` allows only users whose role is admin (`$user->hasRole(Role::ADMIN)`).
 - `UserPolicy::viewAny()` lets every signed-in user see the user list.
-- `UserPolicy::update()` and `delete()` let admins edit or delete requesters and agents, but never another admin (or themselves). Delete works (see the Bin below); edit isn't built yet, so for editing the rule only decides whether the button appears.
+- `UserPolicy::update()` and `delete()` let admins edit or delete employees and managers, but never another admin (or themselves). Delete works (see the Bin below); edit isn't built yet, so for editing the rule only decides whether the button appears.
 - `UserPolicy::viewTrashed()`, `restore()`, and `forceDelete()` let only admins open the bin and restore or permanently delete non-admin users that are in it.
-- Both `GET /users/create` and `POST /users` check it with the route's `can('create', User::class)` middleware, and `StoreUserRequest::authorize()` checks it again. Requesters and agents get **403 Forbidden**.
+- Both `GET /users/create` and `POST /users` check it with the route's `can('create', User::class)` middleware, and `StoreUserRequest::authorize()` checks it again. Employees and managers get **403 Forbidden**.
 - The result is also shared with the frontend as `auth.can.createUsers`, which only hides the **Create user** sidebar link from non-admins. Hiding the link is cosmetic; the server check is the real protection.
 
 ### 9. Users list
 
 - The **Users** sidebar item opens `/users` (`users.index`), which every signed-in user can see (`UserPolicy::viewAny()`).
-- Every viewer sees each user's name and email. **Admins** also get an Actions column with **Edit** (not functional yet) and **Delete** buttons on requester and agent rows only; admin rows show a dash. **Requesters and agents** instead see **Department** (empty until departments exist) and **Joined** columns.
+- Every viewer sees each user's name and email. **Admins** also get an Actions column with **Edit** (not functional yet) and **Delete** buttons on employee and manager rows only; admin rows show a dash. **Employees and managers** instead see **Department** (empty until departments exist) and **Joined** columns.
 - Each row carries `can.update` and `can.delete` flags computed by `UserPolicy` on the server, and the page gets a `canManageUsers` flag. These only control what's shown.
 - Users are sorted by name with 15 per page and Prev/Next links. Pagination happens on the server.
 - Roles are eager-loaded (`with('role')`), so the page runs one extra query instead of one per user.
@@ -234,10 +238,10 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 
 - `tests/Feature/DashboardTest.php`: signed-in users see the `dashboard` component; it receives every expected prop with the right types (6 stats, 12 days of chart data, a resolution rate between 0 and 100, department counts, and recent tickets); the props never include sensitive fields such as `password`, `remember_token`, `email`, or `internal_note`; guests are redirected to the login page.
 - `tests/Feature/Auth/AuthenticationTest.php`: the login page renders; valid credentials sign in and regenerate the session ID; a wrong password and an unknown email get the same error; invalid input is rejected; the remember cookie is set only when "Remember me" is ticked; repeated failures lock the account out; users return to the page they asked for; signed-in users are kept away from the login page; logout works, is POST-only, and is not available to guests; registration routes are gone; only the user's `id` and `name` are shared.
-- `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; requesters and agents get 403 on both; only admins are told they can create users; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long); client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
-- `tests/Feature/UserBinTest.php`: admins can move requesters and agents to the bin, but not admins or themselves; requesters, agents, and guests can't delete; deleted users vanish from the list, can't sign in, and are signed out if already signed in; a success message is flashed; new users don't reuse a binned user's email; only admins can see the bin, which lists only deleted users with safe fields; admins can restore (and the user can sign in again) or delete forever, non-admins can't, and neither works on users that aren't in the bin.
-- `tests/Feature/UserListTest.php`: guests are redirected; requesters, agents, and admins can all see the list; each row has exactly name, email, role, joined date, and permission flags; no sensitive fields are sent; users are sorted by name, 15 per page; users with a temporary password are sent to change it first; only admins get the manage view; the policy lets admins edit or delete requesters and agents but not admins or themselves, and never lets requesters or agents.
-- `tests/Feature/RoleTest.php`: the three roles exist with unique names; users created from the form are requesters, even when the client sends a role; `role_id` can't be mass-assigned; the user/role relationships and factory states work; a role in use can't be deleted.
+- `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; employees and managers get 403 on both; the form receives the role options; admins can create employees, managers, and admins; missing, unknown, or old (requester/agent) roles are rejected; only admins are told they can create users; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long); client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
+- `tests/Feature/UserBinTest.php`: admins can move employees and managers to the bin, but not admins or themselves; employees, managers, and guests can't delete; deleted users vanish from the list, can't sign in, and are signed out if already signed in; a success message is flashed; new users don't reuse a binned user's email; only admins can see the bin, which lists only deleted users with safe fields; admins can restore (and the user can sign in again) or delete forever, non-admins can't, and neither works on users that aren't in the bin.
+- `tests/Feature/UserListTest.php`: guests are redirected; employees, managers, and admins can all see the list; each row has exactly name, email, role, joined date, and permission flags; no sensitive fields are sent; users are sorted by name, 15 per page; users with a temporary password are sent to change it first; only admins get the manage view; the policy lets admins edit or delete employees and managers but not admins or themselves, and never lets employees or managers.
+- `tests/Feature/RoleTest.php`: the employee, manager, and admin roles exist with unique names and the old requester/agent names are gone; a raw `role_id` sent by the client is ignored; `role_id` can't be mass-assigned; the user/role relationships and factory states work; a role in use can't be deleted.
 - `tests/Feature/Auth/PasswordChangeTest.php`: users with a temporary password are redirected from protected pages; signing in with one leads to the change page; they can still sign out; the new password is validated (missing, too short, mismatched, same as temporary); a successful change lifts the restriction; other users skip the page; guests can't reach it.
 
 ## Security notes
@@ -245,8 +249,8 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - The dashboard and user pages require a signed-in user (`auth` middleware), and users with a temporary password are held on the change-password page until they set their own.
 - Login uses one generic error for unknown emails and wrong passwords (no user enumeration), is rate limited per email + IP, and regenerates the session ID. Logout is POST-only and invalidates the session.
 - Only the user's `id` and `name`, plus the `auth.can` flags, are shared with the frontend. A test makes sure dashboard props don't leak sensitive fields.
-- When creating users, only the name is accepted from the client; the email, password, and `must_change_password` flag are set on the server. The temporary password is stored hashed and shown once.
-- Creating users is restricted to admins by `UserPolicy`, checked on both routes and in the form request, with negative tests for requesters and agents.
+- When creating users, only the name and a validated role name are accepted from the client; the email, password, and `must_change_password` flag are set on the server. The temporary password is stored hashed and shown once.
+- Creating users is restricted to admins by `UserPolicy`, checked on both routes and in the form request, with negative tests for employees and managers.
 - Deleting is a soft delete, so a mistaken delete can be undone from the Bin; only admins can delete forever, after a confirmation.
 - **Known gap:** generated `@gmail.com` addresses belong to real Gmail users, so the domain should be changed before email notifications are built.
 - Planned rules for every feature: validate all input on the server, enforce authorization with Policies/Gates, guard against IDOR, never trust client-supplied IDs, roles, or ownership, keep internal notes and private attachments hidden from unauthorized users, and make sure uploaded files can never be executed.
@@ -257,7 +261,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - [x] Dashboard UI (sample data), layout, and dark mode
 - [x] Authentication: login, logout, remember me, rate limiting (public registration removed)
 - [ ] User management (done so far: create user with a generated email and temporary password, and a forced password change on first login)
-- [ ] Departments and roles (done so far: requester, agent, and admin roles; only admins can create users)
+- [ ] Departments and roles (done so far: employee, manager, and admin roles; admins pick the role when creating users)
 - [ ] Ticket creation, listing, details, and updates
 - [ ] Ticket assignment and status management
 - [ ] Role-based and resource-level authorization

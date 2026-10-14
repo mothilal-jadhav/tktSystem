@@ -10,7 +10,12 @@ declare module '@inertiajs/core' {
     export interface InertiaConfig {
         flashDataType: {
             // Shown once after creating a user; never stored in history.
-            createdUser?: { name: string; email: string; password: string };
+            createdUser?: {
+                name: string;
+                email: string;
+                role: string;
+                password: string;
+            };
             // One-line success message, e.g. after deleting or restoring a user.
             status?: string;
         };
