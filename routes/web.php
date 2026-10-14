@@ -23,6 +23,12 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware(EnsurePasswordIsChanged::class)->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+        // Any signed-in user (UserPolicy::viewAny).
+        Route::get('/users', [UserController::class, 'index'])
+            ->can('viewAny', User::class)
+            ->name('users.index');
+
         // Admins only (UserPolicy::create).
         Route::get('/users/create', [UserController::class, 'create'])
             ->can('create', User::class)
