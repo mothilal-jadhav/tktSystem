@@ -39,7 +39,8 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                // Share only what the UI needs, not the whole model.
+                'user' => $request->user()?->only(['id', 'name']),
             ],
         ];
     }
