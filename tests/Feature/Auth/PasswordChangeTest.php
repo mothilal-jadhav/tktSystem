@@ -49,6 +49,8 @@ test('the new password is validated', function (array $data) {
 ]);
 
 test('changing the password lifts the restriction', function () {
+    $this->user->forceFill(['remember_token' => 'old-token'])->save();
+
     $this->actingAs($this->user)
         ->put(route('password.update'), [
             'password' => 'new-secret-123',
@@ -58,7 +60,8 @@ test('changing the password lifts the restriction', function () {
 
     $user = $this->user->fresh();
     expect($user->must_change_password)->toBeFalse()
-        ->and(Hash::check('new-secret-123', $user->password))->toBeTrue();
+        ->and(Hash::check('new-secret-123', $user->password))->toBeTrue()
+        ->and($user->remember_token)->not->toBe('old-token');
 
     $this->actingAs($user)->get(route('dashboard'))->assertOk();
 });
@@ -69,6 +72,19 @@ test('users without a temporary password skip the change page', function () {
     $this->actingAs($this->user)
         ->get(route('password.edit'))
         ->assertRedirect(route('dashboard'));
+});
+
+test('users without a temporary password cannot use the forced change to skip the current password', function () {
+    $this->user->forceFill(['must_change_password' => false])->save();
+
+    $this->actingAs($this->user)
+        ->put(route('password.update'), [
+            'password' => 'new-secret-123',
+            'password_confirmation' => 'new-secret-123',
+        ])
+        ->assertRedirect(route('dashboard'));
+
+    expect(Hash::check('password', $this->user->fresh()->password))->toBeTrue();
 });
 
 test('guests cannot change a password', function () {

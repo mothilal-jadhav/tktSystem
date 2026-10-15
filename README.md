@@ -162,10 +162,10 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 - **Settings** at `/settings` (`settings.edit`, sidebar → Account → Settings) is open to every signed-in user and only ever shows or changes their own account (`$request->user()`; no user id is read from the request).
 - **Layout:** one card with a profile picture placeholder (the user's initial) on the left and Name, Email, Role, and Department in a row beside it (two columns on tablets, stacked on phones). These are read-only, since admins manage them; only those four fields are sent.
 - **Change password** sits under the profile picture and works in two steps:
-  1. `POST /settings/password/confirm` (`settings.password.confirm`) checks the current password. If it's right, the time is stored in the session under `SettingsController::PASSWORD_CONFIRMED_KEY` (`settings.password_confirmed_at`, our own key rather than Laravel's `auth.password_confirmed_at`).
-  2. For the next 5 minutes (`SettingsController::PASSWORD_CONFIRM_SECONDS`) the page receives `passwordConfirmed: true` and shows the new password fields. `PUT /settings/password` (`settings.password.update`, `UpdateOwnPasswordRequest`) checks the timestamp again on the server, so step 1 can't be skipped by posting directly. The new password must be confirmed, meet `Password::defaults()`, and differ from the current one.
-  3. Cancel at step 2 sends `DELETE /settings/password/confirm` (`settings.password.cancel`), which forgets the confirmation, so the next visit starts at step 1.
-  4. Leaving the page also resets it: the `ForgetPasswordChangeConfirmation` middleware (web group) clears the key on every GET request except `settings.edit` (Inertia prefetches are ignored). Refreshing Settings or a validation error keeps step 2. Because the Back button restores pages from browser history without a request, the page re-checks `passwordConfirmed` with a partial reload when it opens on step 2.
+    1. `POST /settings/password/confirm` (`settings.password.confirm`) checks the current password. If it's right, the time is stored in the session under `SettingsController::PASSWORD_CONFIRMED_KEY` (`settings.password_confirmed_at`, our own key rather than Laravel's `auth.password_confirmed_at`).
+    2. For the next 5 minutes (`SettingsController::PASSWORD_CONFIRM_SECONDS`) the page receives `passwordConfirmed: true` and shows the new password fields. `PUT /settings/password` (`settings.password.update`, `UpdateOwnPasswordRequest`) checks the timestamp again on the server, so step 1 can't be skipped by posting directly. The new password must be confirmed, meet `Password::defaults()`, and differ from the current one.
+    3. Cancel at step 2 sends `DELETE /settings/password/confirm` (`settings.password.cancel`), which forgets the confirmation, so the next visit starts at step 1.
+    4. Leaving the page also resets it: the `ForgetPasswordChangeConfirmation` middleware (web group) clears the key on every GET request except `settings.edit` (Inertia prefetches are ignored). Refreshing Settings or a validation error keeps step 2. Because the Back button restores pages from browser history without a request, the page re-checks `passwordConfirmed` with a partial reload when it opens on step 2.
 - A successful change rotates the remember token (old "remember me" cookies stop working), regenerates the session, forgets the confirmation so the next change starts at step 1, and flashes "Your password has been changed." Both steps are limited to 6 attempts a minute.
 - The sidebar now hides sections with no items the user may see, so employees and managers no longer see an empty Admin heading.
 
@@ -307,6 +307,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 ## Security notes
 
 - The dashboard and user pages require a signed-in user (`auth` middleware), and users with a temporary password are held on the change-password page until they set their own.
+- `PUT /password` (the forced change) only works while `must_change_password` is true. Everyone else must use Settings, which asks for the current password first. Both rotate the remember token.
 - Login uses one generic error for unknown emails and wrong passwords (no user enumeration), is rate limited per email + IP, and regenerates the session ID. Logout is POST-only and invalidates the session.
 - Password reset gives the same message whether or not an email is registered, and one error for every bad link, so neither form reveals which accounts exist. Tokens are hashed, single-use, expire after 60 minutes, and both forms are rate limited.
 - Only the user's `id` and `name`, plus the `auth.can` flags, are shared with the frontend. A test makes sure dashboard props don't leak sensitive fields.
@@ -315,6 +316,15 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - Deleting is a soft delete, so a mistaken delete can be undone from the Bin; only admins can delete forever, after a confirmation.
 - Generated emails use the placeholder domain `@fakemail.com`. They were `@gmail.com` at first; a migration moved every existing `@gmail.com` address (including users in the bin) to `@fakemail.com`, stopping and rolling back if any new address would already be taken.
 - Planned rules for every feature: validate all input on the server, enforce authorization with Policies/Gates, guard against IDOR, never trust client-supplied IDs, roles, or ownership, keep internal notes and private attachments hidden from unauthorized users, and make sure uploaded files can never be executed.
+
+## Before production
+
+These are known gaps in the current development setup. Fix them before the app holds real data:
+
+- **Email addresses are placeholders.** Generated addresses use `@fakemail.com`, and a data migration moved every `@gmail.com` user to it. Password reset emails can only reach real, controlled mailboxes, so real addresses must be captured for real users, and `MAIL_MAILER` must be changed from `log` to a real mailer.
+- **Role assignments came from migrations.** `add_role_id_to_users_table` made every user that existed at the time an **admin**, and `rename_roles_to_org_roles` turned every **agent** into a **manager**. Review everyone's role before deploying against real data.
+- **Admins can't be demoted in the app.** Admins can't edit or delete other admins (`UserPolicy`), so a user promoted to admin by mistake currently needs a database fix. This will be addressed later.
+- **Dependencies:** `npm audit` reported 3 critical issues in dev-only tooling: `tinypool` ≤2.1.1, pulled in through `oxfmt` and `vite-plus` 0.3.0. An `overrides` entry in `package.json` forces `tinypool` ^2.1.2. Upgrading `vite-plus` instead would also have replaced Vite with its own fork. Remove the override once `vite-plus` is upgraded. Run `npm audit` and `composer audit` before each release.
 
 ## Roadmap
 

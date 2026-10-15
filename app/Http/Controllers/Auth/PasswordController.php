@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\UpdatePasswordRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -35,8 +36,16 @@ class PasswordController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        // Only for replacing a temporary password. Everyone else changes their
+        // password in Settings, which asks for the current password first.
+        if (! $user->must_change_password) {
+            return redirect()->route('dashboard');
+        }
+
         $user->password = $request->validated('password');
         $user->must_change_password = false;
+        // Sign out "remember me" cookies issued with the temporary password.
+        $user->setRememberToken(Str::random(60));
         $user->save();
 
         $request->session()->regenerate();
