@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
+use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -29,10 +30,10 @@ class UserController extends Controller
         $viewer = $request->user();
 
         /** @var LengthAwarePaginator<int, User> $users */
-        $users = User::query()->with('role')->orderBy('name')->paginate(15);
+        $users = User::query()->with(['role', 'department'])->orderBy('name')->paginate(15);
 
         return Inertia::render('users/index', [
-            // Admins get the edit/delete column; everyone else sees department and joined date.
+            // Admins get the edit/delete column; everyone else sees the joined date.
             'canManageUsers' => $viewer->hasRole(Role::ADMIN),
             // Only these fields are sent; passwords, tokens and flags never leave the server.
             'users' => $users->through(fn (User $user) => [
@@ -40,6 +41,7 @@ class UserController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role->name,
+                'department' => $user->department?->name,
                 'joined' => $user->created_at?->toDateString(),
                 // Decided by UserPolicy; the UI only uses these to show or hide buttons.
                 'can' => [
@@ -57,6 +59,7 @@ class UserController extends Controller
     {
         return Inertia::render('users/create', [
             'roles' => Role::orderBy('id')->pluck('name'),
+            'departments' => Department::orderBy('name')->pluck('name'),
         ]);
     }
 
@@ -75,6 +78,7 @@ class UserController extends Controller
         ]);
         $user->must_change_password = true;
         $user->role()->associate(Role::where('name', $request->validated('role'))->sole());
+        $user->department()->associate(Department::where('name', $request->validated('department'))->sole());
         $user->save();
 
         // Flash data is shown on the next page only and is not kept in the
@@ -83,6 +87,7 @@ class UserController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role->name,
+            'department' => $request->validated('department'),
             'password' => $password,
         ]);
 
@@ -90,7 +95,7 @@ class UserController extends Controller
     }
 
     /**
-     * Show the form for changing a user's role.
+     * Show the form for changing a user's role and department.
      */
     public function edit(User $user): Response
     {
@@ -100,20 +105,25 @@ class UserController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role->name,
+                'department' => $user->department?->name,
             ],
             'roles' => Role::orderBy('id')->pluck('name'),
+            'departments' => Department::orderBy('name')->pluck('name'),
         ]);
     }
 
     /**
-     * Change a user's role. The name and email are not editable.
+     * Change a user's role and department. The name and email are not editable.
      */
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
+        $department = $request->validated('department');
+
         $user->role()->associate(Role::where('name', $request->validated('role'))->sole());
+        $user->department()->associate(Department::where('name', $department)->sole());
         $user->save();
 
-        Inertia::flash('status', "{$user->name} is now {$user->role->name}.");
+        Inertia::flash('status', "{$user->name} is now {$user->role->name} in {$department}.");
 
         return redirect()->route('users.index');
     }
