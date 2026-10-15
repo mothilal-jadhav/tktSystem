@@ -140,6 +140,12 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 - Both routes use `UserPolicy::update()`: admins only, never on another admin or themselves (403). Users in the bin can't be edited (404).
 - The role dropdown is shared with Create user as `resources/js/components/role-select.tsx`.
 
+### 12. Departments
+
+- Six departments live in a `departments` table: **HR**, **Sales**, **IT**, **Wellness**, **Claims**, and **Endorsement**. Names are unique and are constants on `App\Models\Department` (`Department::HR`, ..., and `Department::ALL`).
+- They are fixed reference data, so the migration inserts them (like roles) rather than a seeder. The migration uses literal names, and a test checks `Department::ALL` matches the database so the two can't drift.
+- Nothing uses departments yet; linking users to a department is the next step.
+
 ### Shared UI
 
 - Login, change-password, and create-user pages share the dashboard's style: slate backgrounds, indigo accents, white cards, and dark mode support.
