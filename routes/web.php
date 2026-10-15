@@ -31,6 +31,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/departments', [DepartmentController::class, 'index'])
             ->can('viewAny', Department::class)
             ->name('departments.index');
+        Route::get('/departments/{department}', [DepartmentController::class, 'show'])
+            ->can('view', 'department')
+            ->name('departments.show');
 
         // Any signed-in user (UserPolicy::viewAny).
         Route::get('/users', [UserController::class, 'index'])

@@ -53,6 +53,22 @@ const navSections: { title: string; items: NavItem[] }[] = [
     },
 ];
 
+// The href of the nav item for the current page. Sub-pages count too
+// (/departments/4 → Departments); the longest match wins, so
+// /users/create highlights Create user rather than Users.
+function activeHref(currentUrl: string, items: NavItem[]): string | undefined {
+    const path = currentUrl.split(/[?#]/)[0];
+
+    return items
+        .map((item) => item.href)
+        .filter(
+            (href): href is string =>
+                href !== undefined &&
+                (path === href || path.startsWith(`${href}/`)),
+        )
+        .sort((a, b) => b.length - a.length)[0];
+}
+
 function initial(name: string): string {
     return name.charAt(0).toUpperCase();
 }
@@ -89,6 +105,17 @@ function Sidebar({
     userName: string;
     can: Permissions;
 }) {
+    const visibleSections = navSections.map((section) => ({
+        ...section,
+        items: section.items.filter(
+            (item) => !item.permission || can[item.permission],
+        ),
+    }));
+    const active = activeHref(
+        currentUrl,
+        visibleSections.flatMap((section) => section.items),
+    );
+
     return (
         <div className="flex h-full flex-col bg-slate-800 text-slate-300">
             <div className="flex h-16 items-center gap-2 border-b border-slate-700 px-6">
@@ -111,46 +138,45 @@ function Sidebar({
             </div>
 
             <nav className="flex-1 overflow-y-auto px-3 py-4">
-                {navSections.map((section) => (
+                {visibleSections.map((section) => (
                     <div key={section.title} className="mb-4">
                         <p className="px-3 pb-2 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
                             {section.title}
                         </p>
                         <ul className="space-y-1">
-                            {section.items
-                                .filter(
-                                    (item) =>
-                                        !item.permission ||
-                                        can[item.permission],
-                                )
-                                .map((item) => (
-                                    <li key={item.label}>
-                                        {item.href ? (
-                                            <Link
-                                                href={item.href}
-                                                className={cn(
-                                                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition hover:bg-slate-700 hover:text-white',
-                                                    currentUrl === item.href &&
-                                                        'bg-slate-700 text-white',
-                                                )}
-                                            >
-                                                <Icon name={item.icon} />
-                                                {item.label}
-                                            </Link>
-                                        ) : (
-                                            <span
-                                                aria-disabled="true"
-                                                className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-500"
-                                            >
-                                                <Icon name={item.icon} />
-                                                {item.label}
-                                                <span className="ml-auto rounded bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">
-                                                    soon
-                                                </span>
+                            {section.items.map((item) => (
+                                <li key={item.label}>
+                                    {item.href ? (
+                                        <Link
+                                            href={item.href}
+                                            aria-current={
+                                                active === item.href
+                                                    ? 'page'
+                                                    : undefined
+                                            }
+                                            className={cn(
+                                                'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition hover:bg-slate-700 hover:text-white',
+                                                active === item.href &&
+                                                    'bg-slate-700 text-white',
+                                            )}
+                                        >
+                                            <Icon name={item.icon} />
+                                            {item.label}
+                                        </Link>
+                                    ) : (
+                                        <span
+                                            aria-disabled="true"
+                                            className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-500"
+                                        >
+                                            <Icon name={item.icon} />
+                                            {item.label}
+                                            <span className="ml-auto rounded bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">
+                                                soon
                                             </span>
-                                        )}
-                                    </li>
-                                ))}
+                                        </span>
+                                    )}
+                                </li>
+                            ))}
                         </ul>
                     </div>
                 ))}

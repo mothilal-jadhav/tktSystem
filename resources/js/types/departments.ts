@@ -6,6 +6,14 @@ export type DepartmentEmployee = {
     role: RoleName;
 };
 
+export type DepartmentMember = {
+    id: number;
+    name: string;
+    email: string;
+    role: RoleName;
+    joined: string | null;
+};
+
 export type Department = {
     id: number;
     name: string;

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Department;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -32,6 +33,30 @@ class DepartmentController extends Controller
                     'name' => $user->name,
                     'role' => $user->role->name,
                 ]),
+            ]),
+        ]);
+    }
+
+    /**
+     * Show one department and its employees, 15 per page, sorted by name.
+     */
+    public function show(Department $department): Response
+    {
+        /** @var LengthAwarePaginator<int, User> $employees */
+        $employees = $department->users()->with('role')->orderBy('name')->paginate(15);
+
+        return Inertia::render('departments/show', [
+            'department' => [
+                'id' => $department->id,
+                'name' => $department->name,
+            ],
+            // Same fields the users list shows; passwords, tokens and flags never leave the server.
+            'employees' => $employees->through(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role->name,
+                'joined' => $user->created_at?->toDateString(),
             ]),
         ]);
     }
