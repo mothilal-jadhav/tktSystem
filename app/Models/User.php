@@ -21,11 +21,13 @@ use Illuminate\Support\Carbon;
  * @property string $password
  * @property bool $must_change_password
  * @property int $role_id
+ * @property int|null $department_id
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read Role $role
+ * @property-read Department|null $department
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
@@ -64,5 +66,15 @@ class User extends Authenticatable
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
+    }
+
+    /**
+     * The user's department. Not mass assignable; always set explicitly on the server.
+     *
+     * @return BelongsTo<Department, $this>
+     */
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
     }
 }
