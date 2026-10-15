@@ -146,7 +146,7 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 - They are fixed reference data, so the migration inserts them (like roles) rather than a seeder. The migration uses literal names, and a test checks `Department::ALL` matches the database so the two can't drift.
 - **Departments page** at `/departments` (sidebar → Departments): every signed-in user can see it (`DepartmentPolicy::viewAny`). `DepartmentController::index` sends only each department's `id` and `name`, sorted by name, and the page shows them as large cards.
 - **Assigning departments:** each user has an optional `users.department_id` (nullable because users created before departments have none; restrict on delete). The Create user and Edit user forms have a required **Department** dropdown below Role (`DepartmentSelect`), with no department pre-selected. The client sends a department **name**, validated with `Rule::in(Department::ALL)` in `StoreUserRequest` and `UpdateUserRequest`; a raw `department_id` is never read, and it isn't mass-assignable. The created-user panel and the update message ("Asha Rao is now manager in IT.") include the department.
-- The department cards don't list employees yet.
+- **Employees on each card:** `DepartmentController::index` eager-loads each department's users (sorted by name, users in the bin left out), using two queries in total. Each employee is sent as `id`, `name`, and `role` only, with no email. A card shows the employee count, up to 6 names with an initial avatar and a badge for managers and admins, and then "+N more".
 
 ### Shared UI
 

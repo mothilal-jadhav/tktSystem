@@ -4,6 +4,9 @@ import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import type { Department } from '@/types';
 
+// Longer lists are cut off with "+N more" so the cards stay a similar size.
+const maxShown = 6;
+
 // Accent colours for the icon tiles, cycled by position. Presentation only.
 const accents = [
     'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300',
@@ -51,9 +54,53 @@ export default function DepartmentsIndex({
                             >
                                 <Icon name="building" className="size-7" />
                             </span>
-                            <h2 className="text-xl font-semibold text-slate-800 dark:text-white">
-                                {department.name}
-                            </h2>
+                            <div>
+                                <h2 className="text-xl font-semibold text-slate-800 dark:text-white">
+                                    {department.name}
+                                </h2>
+                                <p className="mt-1 text-sm text-slate-500">
+                                    {department.employees.length === 1
+                                        ? '1 employee'
+                                        : `${department.employees.length} employees`}
+                                </p>
+                            </div>
+
+                            {department.employees.length === 0 ? (
+                                <p className="text-sm text-slate-400">
+                                    No employees yet.
+                                </p>
+                            ) : (
+                                <ul className="space-y-2 border-t border-slate-100 pt-4 dark:border-slate-700">
+                                    {department.employees
+                                        .slice(0, maxShown)
+                                        .map((employee) => (
+                                            <li
+                                                key={employee.id}
+                                                className="flex items-center gap-3 text-sm"
+                                            >
+                                                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                                                    {employee.name
+                                                        .charAt(0)
+                                                        .toUpperCase()}
+                                                </span>
+                                                <span className="truncate text-slate-700 dark:text-slate-200">
+                                                    {employee.name}
+                                                </span>
+                                                {employee.role !==
+                                                    'employee' && (
+                                                    <span className="ml-auto shrink-0 rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-600 capitalize dark:bg-indigo-500/15 dark:text-indigo-300">
+                                                        {employee.role}
+                                                    </span>
+                                                )}
+                                            </li>
+                                        ))}
+                                    {department.employees.length > maxShown && (
+                                        <li className="pl-10 text-xs text-slate-500">
+                                            {`+${department.employees.length - maxShown} more`}
+                                        </li>
+                                    )}
+                                </ul>
+                            )}
                         </li>
                     ))}
                 </ul>
