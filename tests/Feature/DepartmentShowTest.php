@@ -18,7 +18,8 @@ test('every role can see a department', function (string $role) {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('departments/show')
-            ->where('department', ['id' => $this->it->id, 'name' => 'IT'])
+            ->where('department', ['id' => $this->it->id, 'name' => 'IT', 'employeeCount' => 0])
+            ->where('managers', [])
         );
 })->with(['employee', 'manager', 'admin']);
 
@@ -36,8 +37,8 @@ test('it lists only that department\'s employees, sorted by name', function () {
         );
 });
 
-test('each row has only the id, name, email, role and joined date', function () {
-    $asha = User::factory()->manager()->inDepartment(Department::IT)->create([
+test('each row has only the id, name, email and joined date', function () {
+    $asha = User::factory()->employee()->inDepartment(Department::IT)->create([
         'name' => 'Asha Rao',
         'email' => 'asha@example.com',
         'created_at' => '2026-10-01 09:30:00',
@@ -50,9 +51,32 @@ test('each row has only the id, name, email, role and joined date', function () 
                 'id' => $asha->id,
                 'name' => 'Asha Rao',
                 'email' => 'asha@example.com',
-                'role' => 'manager',
                 'joined' => '2026-10-01',
             ])
+        );
+});
+
+test('managers are shown at the top and not repeated in the team list', function () {
+    $bala = User::factory()->manager()->inDepartment(Department::IT)->create([
+        'name' => 'Bala Iyer',
+        'email' => 'bala@example.com',
+        'created_at' => '2026-09-01 10:00:00',
+    ]);
+    User::factory()->inDepartment(Department::IT)->create(['name' => 'Asha Rao']);
+    User::factory()->inDepartment(Department::IT)->create(['name' => 'Chitra Nair']);
+    User::factory()->manager()->inDepartment(Department::HR)->create();
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('departments.show', $this->it))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('managers', [[
+                'id' => $bala->id,
+                'name' => 'Bala Iyer',
+                'email' => 'bala@example.com',
+                'joined' => '2026-09-01',
+            ]])
+            ->where('employees.data', fn ($rows) => collect($rows)->pluck('name')->all() === ['Asha Rao', 'Chitra Nair'])
+            ->where('department.employeeCount', 3)
         );
 });
 
@@ -61,7 +85,10 @@ test('users in the bin are not listed', function () {
 
     $this->actingAs(User::factory()->create())
         ->get(route('departments.show', $this->it))
-        ->assertInertia(fn (Assert $page) => $page->where('employees.total', 0));
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employees.total', 0)
+            ->where('department.employeeCount', 0)
+        );
 });
 
 test('employees are paginated 15 per page', function () {

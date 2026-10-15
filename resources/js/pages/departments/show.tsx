@@ -20,9 +20,11 @@ function formatJoined(value: string | null): string {
 
 export default function DepartmentShow({
     department,
+    managers,
     employees,
 }: {
-    department: { id: number; name: string };
+    department: { id: number; name: string; employeeCount: number };
+    managers: DepartmentMember[];
     employees: Paginator<DepartmentMember>;
 }) {
     return (
@@ -46,22 +48,61 @@ export default function DepartmentShow({
                         {department.name}
                     </h1>
                     <p className="mt-0.5 text-sm text-slate-500">
-                        {employees.total === 1
+                        {department.employeeCount === 1
                             ? '1 employee'
-                            : `${employees.total} employees`}
+                            : `${department.employeeCount} employees`}
                     </p>
                 </div>
             </div>
 
+            <section className="mb-5">
+                <h2 className="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                    {managers.length > 1 ? 'Managers' : 'Manager'}
+                </h2>
+                {managers.length === 0 ? (
+                    <p className="rounded-lg bg-white px-5 py-4 text-sm text-slate-500 shadow-sm dark:bg-slate-800">
+                        No manager yet.
+                    </p>
+                ) : (
+                    <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {managers.map((manager) => (
+                            <li
+                                key={manager.id}
+                                className="flex items-center gap-4 rounded-lg border-l-4 border-indigo-500 bg-white p-5 shadow-sm dark:bg-slate-800"
+                            >
+                                <span className="grid size-12 shrink-0 place-items-center rounded-full bg-indigo-500 text-lg font-semibold text-white">
+                                    {manager.name.charAt(0).toUpperCase()}
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="truncate font-semibold text-slate-800 dark:text-white">
+                                        {manager.name}
+                                    </p>
+                                    <p className="truncate text-sm text-slate-500">
+                                        {manager.email}
+                                    </p>
+                                    <p className="text-xs text-slate-400">
+                                        {`Joined ${formatJoined(manager.joined)}`}
+                                    </p>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+
+            <h2 className="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                Team
+            </h2>
+
             <Card>
                 {employees.total === 0 ? (
                     <p className="py-6 text-center text-sm text-slate-500">
-                        No employees in this department yet.
+                        No other employees in this department yet.
                     </p>
                 ) : (
                     <>
                         <div className="-mx-5 overflow-x-auto">
-                            <table className="w-full min-w-[560px] text-left text-sm">
+                            <table className="w-full min-w-[480px] text-left text-sm">
                                 <thead className="text-xs text-slate-500">
                                     <tr className="border-b border-slate-100 dark:border-slate-700">
                                         <th className="px-5 py-2 font-semibold">
@@ -69,9 +110,6 @@ export default function DepartmentShow({
                                         </th>
                                         <th className="px-5 py-2 font-semibold">
                                             Email
-                                        </th>
-                                        <th className="px-5 py-2 font-semibold">
-                                            Role
                                         </th>
                                         <th className="px-5 py-2 font-semibold">
                                             Joined
@@ -89,9 +127,6 @@ export default function DepartmentShow({
                                             </td>
                                             <td className="px-5 py-3">
                                                 {employee.email}
-                                            </td>
-                                            <td className="px-5 py-3 capitalize">
-                                                {employee.role}
                                             </td>
                                             <td className="px-5 py-3 whitespace-nowrap text-slate-500">
                                                 {formatJoined(employee.joined)}
