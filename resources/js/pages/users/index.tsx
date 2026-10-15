@@ -95,19 +95,17 @@ export default function UsersIndex({
                                 <th className="px-5 py-2 font-semibold">
                                     Email
                                 </th>
+                                <th className="px-5 py-2 font-semibold">
+                                    Department
+                                </th>
                                 {canManageUsers ? (
                                     <th className="px-5 py-2 text-right font-semibold">
                                         Actions
                                     </th>
                                 ) : (
-                                    <>
-                                        <th className="px-5 py-2 font-semibold">
-                                            Department
-                                        </th>
-                                        <th className="px-5 py-2 font-semibold">
-                                            Joined
-                                        </th>
-                                    </>
+                                    <th className="px-5 py-2 font-semibold">
+                                        Joined
+                                    </th>
                                 )}
                             </tr>
                         </thead>
@@ -121,20 +119,21 @@ export default function UsersIndex({
                                         {user.name}
                                     </td>
                                     <td className="px-5 py-3">{user.email}</td>
+                                    <td className="px-5 py-3">
+                                        {user.department ?? (
+                                            <span className="text-slate-400">
+                                                —
+                                            </span>
+                                        )}
+                                    </td>
                                     {canManageUsers ? (
                                         <td className="px-5 py-3 text-right">
                                             <UserActions user={user} />
                                         </td>
                                     ) : (
-                                        <>
-                                            {/* Departments are not built yet. */}
-                                            <td className="px-5 py-3 text-slate-400">
-                                                —
-                                            </td>
-                                            <td className="px-5 py-3 whitespace-nowrap text-slate-500">
-                                                {formatJoined(user.joined)}
-                                            </td>
-                                        </>
+                                        <td className="px-5 py-3 whitespace-nowrap text-slate-500">
+                                            {formatJoined(user.joined)}
+                                        </td>
                                     )}
                                 </tr>
                             ))}

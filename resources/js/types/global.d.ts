@@ -14,6 +14,7 @@ declare module '@inertiajs/core' {
                 name: string;
                 email: string;
                 role: string;
+                department: string;
                 password: string;
             };
             // One-line success message, e.g. after deleting or restoring a user.

@@ -1,5 +1,6 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { Card } from '@/components/dashboard/card';
+import { DepartmentSelect } from '@/components/department-select';
 import { RoleSelect } from '@/components/role-select';
 import AppLayout from '@/layouts/app-layout';
 import { index, update } from '@/routes/users';
@@ -10,14 +11,17 @@ type EditableUser = {
     name: string;
     email: string;
     role: RoleName;
+    department: string | null;
 };
 
 export default function EditUser({
     user,
     roles,
+    departments,
 }: {
     user: EditableUser;
     roles: RoleName[];
+    departments: string[];
 }) {
     return (
         <AppLayout>
@@ -50,6 +54,11 @@ export default function EditUser({
                                     defaultValue={user.role}
                                     error={errors.role}
                                 />
+                                <DepartmentSelect
+                                    departments={departments}
+                                    defaultValue={user.department}
+                                    error={errors.department}
+                                />
 
                                 <div className="flex items-center gap-3">
                                     <button
@@ -57,7 +66,9 @@ export default function EditUser({
                                         disabled={processing}
                                         className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-60"
                                     >
-                                        {processing ? 'Saving...' : 'Save role'}
+                                        {processing
+                                            ? 'Saving...'
+                                            : 'Save changes'}
                                     </button>
                                     <Link
                                         href={index.url()}

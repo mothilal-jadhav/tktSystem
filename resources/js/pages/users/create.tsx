@@ -1,12 +1,19 @@
 import { Form, Head, usePage } from '@inertiajs/react';
 import { Card } from '@/components/dashboard/card';
+import { DepartmentSelect } from '@/components/department-select';
 import { FormField } from '@/components/form-field';
 import { RoleSelect } from '@/components/role-select';
 import AppLayout from '@/layouts/app-layout';
 import { store } from '@/routes/users';
 import type { RoleName } from '@/types';
 
-export default function CreateUser({ roles }: { roles: RoleName[] }) {
+export default function CreateUser({
+    roles,
+    departments,
+}: {
+    roles: RoleName[];
+    departments: string[];
+}) {
     const { createdUser } = usePage().flash;
 
     return (
@@ -37,6 +44,10 @@ export default function CreateUser({ roles }: { roles: RoleName[] }) {
                                 Role
                             </dt>
                             <dd className="capitalize">{createdUser.role}</dd>
+                            <dt className="text-teal-700 dark:text-teal-300">
+                                Department
+                            </dt>
+                            <dd>{createdUser.department}</dd>
                             <dt className="text-teal-700 dark:text-teal-300">
                                 Password
                             </dt>
@@ -73,6 +84,11 @@ export default function CreateUser({ roles }: { roles: RoleName[] }) {
                                     roles={roles}
                                     defaultValue="employee"
                                     error={errors.role}
+                                />
+                                <DepartmentSelect
+                                    departments={departments}
+                                    defaultValue={null}
+                                    error={errors.department}
                                 />
                                 <p className="text-xs text-slate-500">
                                     Email is generated from the name; a

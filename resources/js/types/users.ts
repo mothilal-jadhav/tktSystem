@@ -5,6 +5,7 @@ export type UserListItem = {
     name: string;
     email: string;
     role: RoleName;
+    department: string | null;
     joined: string | null;
     // Decided by UserPolicy on the server; only used to show or hide buttons.
     can: {
