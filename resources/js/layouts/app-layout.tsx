@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { dashboard, logout } from '@/routes';
 import { index as binIndex } from '@/routes/bin';
 import { index as departmentsIndex } from '@/routes/departments';
+import { edit as settings } from '@/routes/settings';
 import { create as createUser, index as usersIndex } from '@/routes/users';
 import type { Permissions } from '@/types';
 
@@ -42,7 +43,6 @@ const navSections: { title: string; items: NavItem[] }[] = [
                 href: createUser.url(),
                 permission: 'createUsers',
             },
-            { label: 'Settings', icon: 'settings' },
             {
                 label: 'Bin',
                 icon: 'trash',
@@ -50,6 +50,10 @@ const navSections: { title: string; items: NavItem[] }[] = [
                 permission: 'viewBin',
             },
         ],
+    },
+    {
+        title: 'Account',
+        items: [{ label: 'Settings', icon: 'settings', href: settings.url() }],
     },
 ];
 
@@ -105,12 +109,15 @@ function Sidebar({
     userName: string;
     can: Permissions;
 }) {
-    const visibleSections = navSections.map((section) => ({
-        ...section,
-        items: section.items.filter(
-            (item) => !item.permission || can[item.permission],
-        ),
-    }));
+    // Sections with nothing the user may see (e.g. Admin for employees) are dropped.
+    const visibleSections = navSections
+        .map((section) => ({
+            ...section,
+            items: section.items.filter(
+                (item) => !item.permission || can[item.permission],
+            ),
+        }))
+        .filter((section) => section.items.length > 0);
     const active = activeHref(
         currentUrl,
         visibleSections.flatMap((section) => section.items),

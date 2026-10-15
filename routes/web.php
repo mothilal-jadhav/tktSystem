@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UserBinController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
@@ -38,6 +39,18 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware(EnsurePasswordIsChanged::class)->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+        // Any signed-in user; only ever acts on their own account.
+        Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
+        // Two steps: confirm the current password, then set the new one.
+        Route::post('/settings/password/confirm', [SettingsController::class, 'confirmPassword'])
+            ->middleware('throttle:6,1')
+            ->name('settings.password.confirm');
+        Route::delete('/settings/password/confirm', [SettingsController::class, 'cancelPasswordChange'])
+            ->name('settings.password.cancel');
+        Route::put('/settings/password', [SettingsController::class, 'updatePassword'])
+            ->middleware('throttle:6,1')
+            ->name('settings.password.update');
 
         // Any signed-in user (DepartmentPolicy::viewAny).
         Route::get('/departments', [DepartmentController::class, 'index'])

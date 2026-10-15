@@ -157,6 +157,18 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 - Tokens are stored hashed in `password_reset_tokens`, expire after 60 minutes, work once, and a new one can be requested at most once a minute per user (`config/auth.php`). Both POST routes are guest-only and limited to 6 requests a minute.
 - The route is `password.store`, not `password.update`, because `password.update` is already the forced change-password route.
 
+### 14. Settings
+
+- **Settings** at `/settings` (`settings.edit`, sidebar → Account → Settings) is open to every signed-in user and only ever shows or changes their own account (`$request->user()`; no user id is read from the request).
+- **Layout:** one card with a profile picture placeholder (the user's initial) on the left and Name, Email, Role, and Department in a row beside it (two columns on tablets, stacked on phones). These are read-only, since admins manage them; only those four fields are sent.
+- **Change password** sits under the profile picture and works in two steps:
+  1. `POST /settings/password/confirm` (`settings.password.confirm`) checks the current password. If it's right, the time is stored in the session under `SettingsController::PASSWORD_CONFIRMED_KEY` (`settings.password_confirmed_at`, our own key rather than Laravel's `auth.password_confirmed_at`).
+  2. For the next 5 minutes (`SettingsController::PASSWORD_CONFIRM_SECONDS`) the page receives `passwordConfirmed: true` and shows the new password fields. `PUT /settings/password` (`settings.password.update`, `UpdateOwnPasswordRequest`) checks the timestamp again on the server, so step 1 can't be skipped by posting directly. The new password must be confirmed, meet `Password::defaults()`, and differ from the current one.
+  3. Cancel at step 2 sends `DELETE /settings/password/confirm` (`settings.password.cancel`), which forgets the confirmation, so the next visit starts at step 1.
+  4. Leaving the page also resets it: the `ForgetPasswordChangeConfirmation` middleware (web group) clears the key on every GET request except `settings.edit` (Inertia prefetches are ignored). Refreshing Settings or a validation error keeps step 2. Because the Back button restores pages from browser history without a request, the page re-checks `passwordConfirmed` with a partial reload when it opens on step 2.
+- A successful change rotates the remember token (old "remember me" cookies stop working), regenerates the session, forgets the confirmation so the next change starts at step 1, and flashes "Your password has been changed." Both steps are limited to 6 attempts a minute.
+- The sidebar now hides sections with no items the user may see, so employees and managers no longer see an empty Admin heading.
+
 ### Shared UI
 
 - The signed-out pages (login, forgot password, reset password, change password) use `resources/js/components/auth-card.tsx` for the logo and card, plus `AuthStatus` for one-line success messages.
@@ -179,9 +191,12 @@ app/Http/Requests/Auth/UpdatePasswordRequest.php        New password validation
 app/Http/Requests/Auth/ResetPasswordRequest.php         Reset password validation (token, email, password)
 app/Http/Middleware/EnsurePasswordIsChanged.php         Redirects users with a temporary password
 app/Http/Middleware/HandleInertiaRequests.php           Shared props (user id/name, auth.can flags)
+app/Http/Middleware/ForgetPasswordChangeConfirmation.php  Resets the Settings password step when leaving the page
 app/Models/Role.php                                     Role model and role name constants
 app/Policies/UserPolicy.php                             Who may list, create, delete, and restore users
 app/Http/Controllers/UserBinController.php              Bin: list, restore, and permanently delete users
+app/Http/Controllers/SettingsController.php             Settings: own account details and password change
+app/Http/Requests/UpdateOwnPasswordRequest.php          Settings new password validation (step 2)
 database/migrations/..._add_must_change_password_to_users_table.php
 database/migrations/..._create_roles_table.php          Roles table + the three role rows
 database/migrations/..._add_role_id_to_users_table.php  users.role_id (existing users become admin)
@@ -199,6 +214,7 @@ resources/js/pages/users/index.tsx                      Users list page
 resources/js/pages/users/edit.tsx                       Edit user page (role and department)
 resources/js/pages/bin/index.tsx                        Bin page (deleted users)
 resources/js/pages/dashboard.tsx                        Dashboard page
+resources/js/pages/settings/edit.tsx                    Settings page (account details, change password)
 resources/js/components/dashboard/                      Card, stat card, bar chart, ring gauge,
                                                         department bars, recent tickets table
 resources/js/components/form-field.tsx                  Labelled input with validation error
@@ -217,6 +233,7 @@ tests/Feature/UserListTest.php                          Users list tests
 tests/Feature/EmailDomainMigrationTest.php              gmail → fakemail migration tests
 tests/Feature/UserEditTest.php                          Edit user (role) tests
 tests/Feature/UserBinTest.php                           Delete, bin, restore, and delete-forever tests
+tests/Feature/SettingsTest.php                          Settings page and password change tests
 ```
 
 ## Getting started
@@ -285,6 +302,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - `tests/Feature/RoleTest.php`: the employee, manager, and admin roles exist with unique names and the old requester/agent names are gone; a raw `role_id` sent by the client is ignored; `role_id` can't be mass-assigned; the user/role relationships and factory states work; a role in use can't be deleted.
 - `tests/Feature/Auth/PasswordChangeTest.php`: users with a temporary password are redirected from protected pages; signing in with one leads to the change page; they can still sign out; the new password is validated (missing, too short, mismatched, same as temporary); a successful change lifts the restriction; other users skip the page; guests can't reach it.
 - `tests/Feature/Auth/PasswordResetTest.php`: guests can open the forgot password page and signed-in users are kept off all four reset routes; a link is sent to an existing user and points to the reset page with the token and email; unknown and binned emails get the same message and no link; the email is validated; the link opens the reset page; a valid token resets the password, lifts the forced change, rotates the remember token, and deletes the token; a used, wrong, expired, or other user's token is rejected with one generic error; the new password is validated; the form is rate limited.
+- `tests/Feature/SettingsTest.php`: employees, managers, and admins can open settings; it sends exactly the user's own name, email, role, and department (or none); guests are redirected from all three routes; users with a temporary password must change it first; the right current password unlocks step 2 and a wrong or missing one doesn't; the new password can't be set without step 1, after cancelling, after opening another page, or after the 5-minute window; refreshing, a validation error, or a prefetch keeps step 2; a successful change rotates the remember token, keeps the user signed in, and resets to step 1; a client-supplied user id can't change someone else's password; the new password is validated (missing, short, mismatched, unchanged); both steps are rate limited.
 
 ## Security notes
 
