@@ -114,12 +114,13 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 ### 9. Users list
 
 - The **Users** sidebar item opens `/users` (`users.index`), which every signed-in user can see (`UserPolicy::viewAny()`).
-- Every viewer sees each user's name and email. **Admins** also get an Actions column with **Edit** and **Delete** buttons on employee and manager rows only; admin rows show a dash. Everyone sees a **Department** column (a dash if none is set). **Employees and managers** also see a **Joined** column instead of Actions.
+- Every viewer sees each user's name, email, and **role** (a coloured badge: employee grey, manager indigo, admin amber). **Admins** also get an Actions column with **Edit** and **Delete** buttons on employee and manager rows only; admin rows show a dash. Everyone sees a **Department** column (a dash if none is set). **Employees and managers** also see a **Joined** column instead of Actions.
 - Each row carries `can.update` and `can.delete` flags computed by `UserPolicy` on the server, and the page gets a `canManageUsers` flag. These only control what's shown.
 - Users are sorted by name with 15 per page and Prev/Next links. Pagination happens on the server.
 - Roles are eager-loaded (`with('role')`), so the page runs one extra query instead of one per user.
-- Each row is built field by field, so only `id`, `name`, `email`, `role`, and `joined` reach the browser.
+- Each row is built field by field, so only `id`, `name`, `email`, `role`, `department`, `joined`, and the `can` flags reach the browser.
 - Admins also see a **Create user** button on this page.
+- **Filters:** **Role** and **Department** dropdowns above the table (the department list includes "No department"). Changing one reloads the list from the server as `/users?role=manager&department=IT`, back on page 1, and Prev/Next keep the filters (`withQueryString()`). The server only accepts the known role names, the six department names, and `none`; anything else is ignored rather than trusted. **Clear filters** resets both. Any signed-in user can filter.
 
 ### 10. Deleting users and the Bin
 

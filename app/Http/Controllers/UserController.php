@@ -22,17 +22,43 @@ class UserController extends Controller
     private const EMAIL_DOMAIN = 'fakemail.com';
 
     /**
-     * List users, 15 per page, sorted by name.
+     * Value of the department filter that matches users without a department.
+     */
+    public const NO_DEPARTMENT = 'none';
+
+    /**
+     * List users, 15 per page, sorted by name, optionally filtered by role and department.
      */
     public function index(Request $request): Response
     {
         /** @var User $viewer */
         $viewer = $request->user();
 
+        // Unknown filter values are ignored rather than trusted, so the query only ever
+        // compares against the known role and department names.
+        $role = in_array($request->query('role'), [Role::EMPLOYEE, Role::MANAGER, Role::ADMIN], true)
+            ? $request->query('role')
+            : null;
+        $department = in_array($request->query('department'), [...Department::ALL, self::NO_DEPARTMENT], true)
+            ? $request->query('department')
+            : null;
+
         /** @var LengthAwarePaginator<int, User> $users */
-        $users = User::query()->with(['role', 'department'])->orderBy('name')->paginate(15);
+        $users = User::query()
+            ->with(['role', 'department'])
+            ->when($role, fn ($query) => $query->whereRelation('role', 'name', $role))
+            ->when($department === self::NO_DEPARTMENT, fn ($query) => $query->whereNull('department_id'))
+            ->when($department && $department !== self::NO_DEPARTMENT, fn ($query) => $query
+                ->whereRelation('department', 'name', $department))
+            ->orderBy('name')
+            ->paginate(15)
+            // Keeps the filters on the Prev/Next links.
+            ->withQueryString();
 
         return Inertia::render('users/index', [
+            'filters' => ['role' => $role, 'department' => $department],
+            'roles' => Role::orderBy('id')->pluck('name'),
+            'departments' => Department::orderBy('name')->pluck('name'),
             // Admins get the edit/delete column; everyone else sees the joined date.
             'canManageUsers' => $viewer->hasRole(Role::ADMIN),
             // Only these fields are sent; passwords, tokens and flags never leave the server.

@@ -1,10 +1,109 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Card } from '@/components/dashboard/card';
 import { Icon } from '@/components/icons';
 import { PageLink } from '@/components/page-link';
+import { cn } from '@/lib/utils';
 import AppLayout from '@/layouts/app-layout';
-import { create, destroy, edit } from '@/routes/users';
-import type { Paginator, UserListItem } from '@/types';
+import { create, destroy, edit, index } from '@/routes/users';
+import type { Paginator, RoleName, UserListItem } from '@/types';
+
+type Filters = {
+    role: RoleName | null;
+    // A department name, or 'none' for users without one.
+    department: string | null;
+};
+
+const roleBadge: Record<RoleName, string> = {
+    employee:
+        'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+    manager:
+        'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300',
+    admin: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+};
+
+const selectClass =
+    'rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-600 dark:bg-slate-700 dark:text-white';
+
+function UserFilters({
+    filters,
+    roles,
+    departments,
+}: {
+    filters: Filters;
+    roles: RoleName[];
+    departments: string[];
+}) {
+    // Reloads the list from the server with the new filters, back on page 1.
+    const apply = (next: Filters) => {
+        const query = Object.fromEntries(
+            Object.entries(next).filter(([, value]) => value),
+        );
+
+        router.get(index.url(), query, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    };
+
+    const active = filters.role !== null || filters.department !== null;
+
+    return (
+        <div className="mb-4 flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+                Role
+                <select
+                    value={filters.role ?? ''}
+                    onChange={(event) =>
+                        apply({
+                            ...filters,
+                            role: (event.target.value ||
+                                null) as RoleName | null,
+                        })
+                    }
+                    className={cn(selectClass, 'capitalize')}
+                >
+                    <option value="">All roles</option>
+                    {roles.map((role) => (
+                        <option key={role} value={role}>
+                            {role}
+                        </option>
+                    ))}
+                </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+                Department
+                <select
+                    value={filters.department ?? ''}
+                    onChange={(event) =>
+                        apply({
+                            ...filters,
+                            department: event.target.value || null,
+                        })
+                    }
+                    className={selectClass}
+                >
+                    <option value="">All departments</option>
+                    {departments.map((department) => (
+                        <option key={department} value={department}>
+                            {department}
+                        </option>
+                    ))}
+                    <option value="none">No department</option>
+                </select>
+            </label>
+            {active && (
+                <button
+                    type="button"
+                    onClick={() => apply({ role: null, department: null })}
+                    className="rounded-md px-3 py-2 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+                >
+                    Clear filters
+                </button>
+            )}
+        </div>
+    );
+}
 
 function formatJoined(value: string | null): string {
     if (!value) {
@@ -59,9 +158,15 @@ function UserActions({ user }: { user: UserListItem }) {
 export default function UsersIndex({
     users,
     canManageUsers,
+    filters,
+    roles,
+    departments,
 }: {
     users: Paginator<UserListItem>;
     canManageUsers: boolean;
+    filters: Filters;
+    roles: RoleName[];
+    departments: string[];
 }) {
     const { auth } = usePage().props;
 
@@ -84,9 +189,15 @@ export default function UsersIndex({
                 )}
             </div>
 
+            <UserFilters
+                filters={filters}
+                roles={roles}
+                departments={departments}
+            />
+
             <Card>
                 <div className="-mx-5 overflow-x-auto">
-                    <table className="w-full min-w-[560px] text-left text-sm">
+                    <table className="w-full min-w-[680px] text-left text-sm">
                         <thead className="text-xs text-slate-500">
                             <tr className="border-b border-slate-100 dark:border-slate-700">
                                 <th className="px-5 py-2 font-semibold">
@@ -94,6 +205,9 @@ export default function UsersIndex({
                                 </th>
                                 <th className="px-5 py-2 font-semibold">
                                     Email
+                                </th>
+                                <th className="px-5 py-2 font-semibold">
+                                    Role
                                 </th>
                                 <th className="px-5 py-2 font-semibold">
                                     Department
@@ -120,6 +234,16 @@ export default function UsersIndex({
                                     </td>
                                     <td className="px-5 py-3">{user.email}</td>
                                     <td className="px-5 py-3">
+                                        <span
+                                            className={cn(
+                                                'rounded px-2 py-0.5 text-xs font-medium capitalize',
+                                                roleBadge[user.role],
+                                            )}
+                                        >
+                                            {user.role}
+                                        </span>
+                                    </td>
+                                    <td className="px-5 py-3">
                                         {user.department ?? (
                                             <span className="text-slate-400">
                                                 —
@@ -144,7 +268,9 @@ export default function UsersIndex({
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
                     <p>
                         {users.total === 0
-                            ? 'No users'
+                            ? filters.role || filters.department
+                                ? 'No users match these filters'
+                                : 'No users'
                             : `Showing ${users.from}–${users.to} of ${users.total}`}
                     </p>
                     <div className="flex gap-2">
