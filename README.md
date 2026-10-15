@@ -150,8 +150,16 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 - **Cards:** each card shows the department name, its employee count (everyone, managers included), and its manager(s), or "No manager yet". Employee names are not on the cards. `DepartmentController::index` sends only `id`, `name`, `employeeCount`, and `managers` (names), using two queries; users in the bin aren't counted.
 - **Department page:** clicking a card opens `/departments/{department}` (`departments.show`, `DepartmentPolicy::view`, any signed-in user). The department's manager(s) are shown at the top as highlighted cards, followed by a **Team** table of everyone else (name, email, joined), 15 per page and sorted by name, with users in the bin left out. The header count includes managers. Each person is sent as `id`, `name`, `email`, and `joined` only (no role, since the page layout already separates managers). The page has an "All departments" link back. An unknown id returns 404.
 
+### 13. Forgot password (reset by email link)
+
+- The login page has a **Forgot password?** link to `/forgot-password` (`password.request`), which asks for an email address. Submitting (`POST /forgot-password`, `password.email`) uses Laravel's password broker to email a reset link. While `MAIL_MAILER=log`, the email (and its link) is written to `storage/logs/laravel.log`.
+- The link opens `/reset-password/{token}?email=...` (`password.reset`), where the user enters a new password twice. `POST /reset-password` (`password.store`, `ResetPasswordRequest`) checks the token against the email, saves the password, clears `must_change_password`, rotates the remember token, deletes the token, and sends the user to the login page with a success message.
+- Tokens are stored hashed in `password_reset_tokens`, expire after 60 minutes, work once, and a new one can be requested at most once a minute per user (`config/auth.php`). Both POST routes are guest-only and limited to 6 requests a minute.
+- The route is `password.store`, not `password.update`, because `password.update` is already the forced change-password route.
+
 ### Shared UI
 
+- The signed-out pages (login, forgot password, reset password, change password) use `resources/js/components/auth-card.tsx` for the logo and card, plus `AuthStatus` for one-line success messages.
 - Login, change-password, and create-user pages share the dashboard's style: slate backgrounds, indigo accents, white cards, and dark mode support.
 - `resources/js/components/form-field.tsx` is a reusable labelled input that shows its server-side validation error underneath.
 
@@ -162,10 +170,13 @@ app/Http/Controllers/DashboardController.php            Dashboard controller (sa
 app/Http/Controllers/UserController.php                 Create user (generated email + password)
 app/Http/Controllers/Auth/AuthenticatedSessionController.php   Login and logout
 app/Http/Controllers/Auth/PasswordController.php        Forced password change
+app/Http/Controllers/Auth/PasswordResetLinkController.php  Forgot password: email a reset link
+app/Http/Controllers/Auth/NewPasswordController.php     Reset password from the emailed link
 app/Http/Requests/StoreUserRequest.php                  Create user validation (name regex, role)
 app/Http/Requests/UpdateUserRequest.php                 Edit user validation (role and department)
 app/Http/Requests/Auth/LoginRequest.php                 Login validation, attempt, rate limiting
 app/Http/Requests/Auth/UpdatePasswordRequest.php        New password validation
+app/Http/Requests/Auth/ResetPasswordRequest.php         Reset password validation (token, email, password)
 app/Http/Middleware/EnsurePasswordIsChanged.php         Redirects users with a temporary password
 app/Http/Middleware/HandleInertiaRequests.php           Shared props (user id/name, auth.can flags)
 app/Models/Role.php                                     Role model and role name constants
@@ -181,6 +192,8 @@ resources/js/app.tsx                                    Inertia/React entry poin
 resources/js/layouts/app-layout.tsx                     Sidebar, top bar, mobile nav, dark mode, sign out
 resources/js/pages/auth/login.tsx                       Login page
 resources/js/pages/auth/change-password.tsx             Set a new password page
+resources/js/pages/auth/forgot-password.tsx             Ask for an email to send a reset link
+resources/js/pages/auth/reset-password.tsx              Choose a new password from the reset link
 resources/js/pages/users/create.tsx                     Create user page
 resources/js/pages/users/index.tsx                      Users list page
 resources/js/pages/users/edit.tsx                       Edit user page (role and department)
@@ -189,6 +202,7 @@ resources/js/pages/dashboard.tsx                        Dashboard page
 resources/js/components/dashboard/                      Card, stat card, bar chart, ring gauge,
                                                         department bars, recent tickets table
 resources/js/components/form-field.tsx                  Labelled input with validation error
+resources/js/components/auth-card.tsx                   Logo + card shell for signed-out pages
 resources/js/components/role-select.tsx                 Role dropdown (create and edit user)
 resources/js/components/page-link.tsx                   Prev/Next pagination link
 resources/js/components/icons.tsx                       Inline SVG icons
@@ -197,6 +211,7 @@ tests/Feature/DashboardTest.php                         Dashboard tests
 tests/Feature/UserCreationTest.php                      Create user tests
 tests/Feature/Auth/AuthenticationTest.php               Login, logout, registration-removed tests
 tests/Feature/Auth/PasswordChangeTest.php               Forced password change tests
+tests/Feature/Auth/PasswordResetTest.php                Forgot/reset password tests
 tests/Feature/RoleTest.php                              Role tests
 tests/Feature/UserListTest.php                          Users list tests
 tests/Feature/EmailDomainMigrationTest.php              gmail → fakemail migration tests
@@ -269,11 +284,13 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - `tests/Feature/UserListTest.php`: guests are redirected; employees, managers, and admins can all see the list; each row has exactly name, email, role, joined date, and permission flags; no sensitive fields are sent; users are sorted by name, 15 per page; users with a temporary password are sent to change it first; only admins get the manage view; the policy lets admins edit or delete employees and managers but not admins or themselves, and never lets employees or managers.
 - `tests/Feature/RoleTest.php`: the employee, manager, and admin roles exist with unique names and the old requester/agent names are gone; a raw `role_id` sent by the client is ignored; `role_id` can't be mass-assigned; the user/role relationships and factory states work; a role in use can't be deleted.
 - `tests/Feature/Auth/PasswordChangeTest.php`: users with a temporary password are redirected from protected pages; signing in with one leads to the change page; they can still sign out; the new password is validated (missing, too short, mismatched, same as temporary); a successful change lifts the restriction; other users skip the page; guests can't reach it.
+- `tests/Feature/Auth/PasswordResetTest.php`: guests can open the forgot password page and signed-in users are kept off all four reset routes; a link is sent to an existing user and points to the reset page with the token and email; unknown and binned emails get the same message and no link; the email is validated; the link opens the reset page; a valid token resets the password, lifts the forced change, rotates the remember token, and deletes the token; a used, wrong, expired, or other user's token is rejected with one generic error; the new password is validated; the form is rate limited.
 
 ## Security notes
 
 - The dashboard and user pages require a signed-in user (`auth` middleware), and users with a temporary password are held on the change-password page until they set their own.
 - Login uses one generic error for unknown emails and wrong passwords (no user enumeration), is rate limited per email + IP, and regenerates the session ID. Logout is POST-only and invalidates the session.
+- Password reset gives the same message whether or not an email is registered, and one error for every bad link, so neither form reveals which accounts exist. Tokens are hashed, single-use, expire after 60 minutes, and both forms are rate limited.
 - Only the user's `id` and `name`, plus the `auth.can` flags, are shared with the frontend. A test makes sure dashboard props don't leak sensitive fields.
 - When creating users, only the name and a validated role name are accepted from the client; the email, password, and `must_change_password` flag are set on the server. The temporary password is stored hashed and shown once.
 - Creating users is restricted to admins by `UserPolicy`, checked on both routes and in the form request, with negative tests for employees and managers.
