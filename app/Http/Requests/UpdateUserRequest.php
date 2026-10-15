@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -21,7 +22,7 @@ class UpdateUserRequest extends FormRequest
     }
 
     /**
-     * Only the role can be changed. The name and email stay as they are,
+     * Only the role and department can be changed. The name and email stay as they are,
      * so anything else the client sends is ignored.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
@@ -30,6 +31,7 @@ class UpdateUserRequest extends FormRequest
     {
         return [
             'role' => ['required', 'string', Rule::in([Role::EMPLOYEE, Role::MANAGER, Role::ADMIN])],
+            'department' => ['required', 'string', Rule::in(Department::ALL)],
         ];
     }
 }
