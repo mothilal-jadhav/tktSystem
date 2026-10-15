@@ -23,30 +23,33 @@ test('admins see the edit form with the user and role options', function () {
                 'name' => 'Asha Rao',
                 'email' => 'asharao@fakemail.com',
                 'role' => 'employee',
+                'department' => null,
             ])
             ->where('roles', ['employee', 'manager', 'admin'])
+            ->where('departments', ['Claims', 'Endorsement', 'HR', 'IT', 'Sales', 'Wellness'])
         );
 });
 
 test('admins can change a user\'s role', function (string $role) {
     $this->actingAs($this->admin)
-        ->put(route('users.update', $this->target), ['role' => $role])
+        ->put(route('users.update', $this->target), ['role' => $role, 'department' => 'IT'])
         ->assertRedirect(route('users.index'));
 
     expect($this->target->fresh()->role->name)->toBe($role);
 })->with(['manager', 'admin', 'employee']);
 
 test('changing the role shows a confirmation message', function () {
-    $this->actingAs($this->admin)->put(route('users.update', $this->target), ['role' => 'manager']);
+    $this->actingAs($this->admin)->put(route('users.update', $this->target), ['role' => 'manager', 'department' => 'IT']);
 
     $flash = $this->actingAs($this->admin)->get(route('users.index'))->viewData('page')['flash'];
 
-    expect($flash['status'])->toBe('Asha Rao is now manager.');
+    expect($flash['status'])->toBe('Asha Rao is now manager in IT.');
 });
 
 test('the name and email cannot be changed', function () {
     $this->actingAs($this->admin)->put(route('users.update', $this->target), [
         'role' => 'manager',
+        'department' => 'IT',
         'name' => 'Someone Else',
         'email' => 'other@example.com',
         'role_id' => Role::where('name', Role::ADMIN)->value('id'),
@@ -62,7 +65,7 @@ test('the name and email cannot be changed', function () {
 
 test('an invalid role is rejected', function (array $data) {
     $this->actingAs($this->admin)
-        ->put(route('users.update', $this->target), $data)
+        ->put(route('users.update', $this->target), ['department' => 'IT', ...$data])
         ->assertSessionHasErrors('role');
 
     expect($this->target->fresh()->role->name)->toBe('employee');
@@ -79,7 +82,7 @@ test('admins cannot edit another admin or themselves', function () {
     foreach ([$otherAdmin, $this->admin] as $target) {
         $this->actingAs($this->admin)->get(route('users.edit', $target))->assertForbidden();
         $this->actingAs($this->admin)
-            ->put(route('users.update', $target), ['role' => 'employee'])
+            ->put(route('users.update', $target), ['role' => 'employee', 'department' => 'IT'])
             ->assertForbidden();
 
         expect($target->fresh()->role->name)->toBe('admin');
@@ -91,7 +94,7 @@ test('non-admins cannot edit users', function (string $role) {
 
     $this->actingAs($viewer)->get(route('users.edit', $this->target))->assertForbidden();
     $this->actingAs($viewer)
-        ->put(route('users.update', $this->target), ['role' => 'admin'])
+        ->put(route('users.update', $this->target), ['role' => 'admin', 'department' => 'IT'])
         ->assertForbidden();
 
     expect($this->target->fresh()->role->name)->toBe('employee');
@@ -99,7 +102,7 @@ test('non-admins cannot edit users', function (string $role) {
 
 test('guests cannot edit users', function () {
     $this->get(route('users.edit', $this->target))->assertRedirect(route('login'));
-    $this->put(route('users.update', $this->target), ['role' => 'admin'])->assertRedirect(route('login'));
+    $this->put(route('users.update', $this->target), ['role' => 'admin', 'department' => 'IT'])->assertRedirect(route('login'));
 
     expect($this->target->fresh()->role->name)->toBe('employee');
 });
@@ -109,6 +112,6 @@ test('users in the bin cannot be edited', function () {
 
     $this->actingAs($this->admin)->get(route('users.edit', $this->target))->assertNotFound();
     $this->actingAs($this->admin)
-        ->put(route('users.update', $this->target), ['role' => 'manager'])
+        ->put(route('users.update', $this->target), ['role' => 'manager', 'department' => 'IT'])
         ->assertNotFound();
 });

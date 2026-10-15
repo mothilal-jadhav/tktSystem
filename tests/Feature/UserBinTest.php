@@ -94,10 +94,10 @@ test('a deleted user who is already signed in is signed out', function () {
 });
 
 test('a new user does not reuse the email of a user in the bin', function () {
-    $this->actingAs($this->admin)->post(route('users.store'), ['name' => 'John Doe', 'role' => 'employee']);
+    $this->actingAs($this->admin)->post(route('users.store'), ['name' => 'John Doe', 'role' => 'employee', 'department' => 'IT']);
     User::where('email', 'johndoe@fakemail.com')->sole()->delete();
 
-    $this->actingAs($this->admin)->post(route('users.store'), ['name' => 'John Doe', 'role' => 'employee']);
+    $this->actingAs($this->admin)->post(route('users.store'), ['name' => 'John Doe', 'role' => 'employee', 'department' => 'IT']);
 
     expect(User::where('email', 'johndoe1@fakemail.com')->exists())->toBeTrue();
 });

@@ -24,6 +24,7 @@ test('a raw role_id sent by the client is ignored', function () {
         ->post(route('users.store'), [
             'name' => 'Asha Rao',
             'role' => Role::EMPLOYEE,
+            'department' => 'IT',
             'role_id' => $adminId,
         ]);
 

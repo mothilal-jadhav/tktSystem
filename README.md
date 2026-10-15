@@ -47,7 +47,7 @@ The dashboard includes:
 
 Layout and UI:
 
-- An app layout with a sidebar, top bar, and responsive mobile navigation. The signed-in user's name and initial appear in the sidebar and top bar, and the top bar has a sign-out button. Nav items for features that don't exist yet (Tickets, Departments, Settings) are shown without links and marked "soon".
+- An app layout with a sidebar, top bar, and responsive mobile navigation. The signed-in user's name and initial appear in the sidebar and top bar, and the top bar has a sign-out button. Nav items for features that don't exist yet (Tickets, Settings) are shown without links and marked "soon".
 - A **dark mode toggle**. The choice is saved in `localStorage`, and a small inline script in `app.blade.php` applies the theme before the page paints, so there is no white flash on load. If nothing is saved, it follows the OS preference.
 - A small hand-written SVG icon set (`resources/js/components/icons.tsx`). No icon library was added.
 
@@ -114,7 +114,7 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 ### 9. Users list
 
 - The **Users** sidebar item opens `/users` (`users.index`), which every signed-in user can see (`UserPolicy::viewAny()`).
-- Every viewer sees each user's name and email. **Admins** also get an Actions column with **Edit** and **Delete** buttons on employee and manager rows only; admin rows show a dash. **Employees and managers** instead see **Department** (empty until departments exist) and **Joined** columns.
+- Every viewer sees each user's name and email. **Admins** also get an Actions column with **Edit** and **Delete** buttons on employee and manager rows only; admin rows show a dash. Everyone sees a **Department** column (a dash if none is set). **Employees and managers** also see a **Joined** column instead of Actions.
 - Each row carries `can.update` and `can.delete` flags computed by `UserPolicy` on the server, and the page gets a `canManageUsers` flag. These only control what's shown.
 - Users are sorted by name with 15 per page and Prev/Next links. Pagination happens on the server.
 - Roles are eager-loaded (`with('role')`), so the page runs one extra query instead of one per user.
@@ -133,10 +133,10 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 - A short success message (Inertia flash `status`) appears at the top of the page after deleting, restoring, or deleting forever.
 - Users in the bin keep their email, so a newly created user with the same name gets the next number (e.g. `johndoe1@fakemail.com`).
 
-### 11. Editing a user's role
+### 11. Editing a user's role and department
 
-- **Edit** on the users list opens `/users/{user}/edit` (`users.edit`). The page shows the user's name and email as read-only text and a **Role** dropdown (employee, manager, admin) set to their current role.
-- **Save role** sends `PUT /users/{user}` (`users.update`), validated by `UpdateUserRequest`. Only `role` is accepted, checked with `Rule::in`; the name, email, `role_id`, and other fields are ignored. The user is redirected to the users list with a message such as "Asha Rao is now manager."
+- **Edit** on the users list opens `/users/{user}/edit` (`users.edit`). The page shows the user's name and email as read-only text, a **Role** dropdown (employee, manager, admin) set to their current role, and a **Department** dropdown set to their current department (or "Choose a department" if they have none).
+- **Save changes** sends `PUT /users/{user}` (`users.update`), validated by `UpdateUserRequest`. Only `role` and `department` are accepted, both checked with `Rule::in`; the name, email, `role_id`, `department_id`, and other fields are ignored. The user is redirected to the users list with a message such as "Asha Rao is now manager in IT."
 - Both routes use `UserPolicy::update()`: admins only, never on another admin or themselves (403). Users in the bin can't be edited (404).
 - The role dropdown is shared with Create user as `resources/js/components/role-select.tsx`.
 
@@ -145,7 +145,8 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 - Six departments live in a `departments` table: **HR**, **Sales**, **IT**, **Wellness**, **Claims**, and **Endorsement**. Names are unique and are constants on `App\Models\Department` (`Department::HR`, ..., and `Department::ALL`).
 - They are fixed reference data, so the migration inserts them (like roles) rather than a seeder. The migration uses literal names, and a test checks `Department::ALL` matches the database so the two can't drift.
 - **Departments page** at `/departments` (sidebar → Departments): every signed-in user can see it (`DepartmentPolicy::viewAny`). `DepartmentController::index` sends only each department's `id` and `name`, sorted by name, and the page shows them as large cards.
-- Users aren't linked to departments yet; that's the next step, and the cards will then list each department's employees.
+- **Assigning departments:** each user has an optional `users.department_id` (nullable because users created before departments have none; restrict on delete). The Create user and Edit user forms have a required **Department** dropdown below Role (`DepartmentSelect`), with no department pre-selected. The client sends a department **name**, validated with `Rule::in(Department::ALL)` in `StoreUserRequest` and `UpdateUserRequest`; a raw `department_id` is never read, and it isn't mass-assignable. The created-user panel and the update message ("Asha Rao is now manager in IT.") include the department.
+- The department cards don't list employees yet.
 
 ### Shared UI
 
@@ -160,7 +161,7 @@ app/Http/Controllers/UserController.php                 Create user (generated e
 app/Http/Controllers/Auth/AuthenticatedSessionController.php   Login and logout
 app/Http/Controllers/Auth/PasswordController.php        Forced password change
 app/Http/Requests/StoreUserRequest.php                  Create user validation (name regex, role)
-app/Http/Requests/UpdateUserRequest.php                 Edit user validation (role only)
+app/Http/Requests/UpdateUserRequest.php                 Edit user validation (role and department)
 app/Http/Requests/Auth/LoginRequest.php                 Login validation, attempt, rate limiting
 app/Http/Requests/Auth/UpdatePasswordRequest.php        New password validation
 app/Http/Middleware/EnsurePasswordIsChanged.php         Redirects users with a temporary password
@@ -180,7 +181,7 @@ resources/js/pages/auth/login.tsx                       Login page
 resources/js/pages/auth/change-password.tsx             Set a new password page
 resources/js/pages/users/create.tsx                     Create user page
 resources/js/pages/users/index.tsx                      Users list page
-resources/js/pages/users/edit.tsx                       Edit user page (role only)
+resources/js/pages/users/edit.tsx                       Edit user page (role and department)
 resources/js/pages/bin/index.tsx                        Bin page (deleted users)
 resources/js/pages/dashboard.tsx                        Dashboard page
 resources/js/components/dashboard/                      Card, stat card, bar chart, ring gauge,
@@ -282,7 +283,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - [x] Dashboard UI (sample data), layout, and dark mode
 - [x] Authentication: login, logout, remember me, rate limiting (public registration removed)
 - [ ] User management (done so far: create user with a generated email and temporary password, and a forced password change on first login)
-- [ ] Departments and roles (done so far: employee, manager, and admin roles; admins pick the role when creating users)
+- [ ] Departments and roles (done so far: employee, manager, and admin roles; admins pick the role and department when creating or editing users)
 - [ ] Ticket creation, listing, details, and updates
 - [ ] Ticket assignment and status management
 - [ ] Role-based and resource-level authorization

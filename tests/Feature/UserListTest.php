@@ -31,6 +31,7 @@ test('each row has only the name, email, role, joined date and permissions', fun
                 'name' => 'Asha Rao',
                 'email' => 'asha@example.com',
                 'role' => 'manager',
+                'department' => null,
                 'joined' => '2026-10-01',
                 'can' => ['update' => false, 'delete' => false],
             ])
