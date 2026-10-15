@@ -234,6 +234,8 @@ To use SQLite instead, set `DB_CONNECTION=sqlite`, run `touch database/database.
 
 There is no public sign-up. To get a first account locally, run `php artisan db:seed`, which creates the admin `test@example.com` with the password `password`. Further accounts are created from **Create user** in the sidebar.
 
+**Demo employees:** `php artisan db:seed --class=DepartmentEmployeeSeeder` (also run by `php artisan db:seed`) creates 53 made-up employees with Indian names and `@fakemail.com` emails: 3 in HR and 10 in every other department. Managers aren't included. Each gets a random password and must change it on first sign-in. The passwords are saved to `storage/app/private/seeded-users.csv` (git-ignored, never logged). The seeder is safe to re-run: it skips emails that already exist, including users in the bin. It refuses to run in production.
+
 ### Run in development
 
 ```bash
