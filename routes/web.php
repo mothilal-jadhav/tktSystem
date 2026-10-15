@@ -3,9 +3,11 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\UserBinController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
+use App\Models\Department;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +26,11 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware(EnsurePasswordIsChanged::class)->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+        // Any signed-in user (DepartmentPolicy::viewAny).
+        Route::get('/departments', [DepartmentController::class, 'index'])
+            ->can('viewAny', Department::class)
+            ->name('departments.index');
 
         // Any signed-in user (UserPolicy::viewAny).
         Route::get('/users', [UserController::class, 'index'])

@@ -144,7 +144,8 @@ A **Create user** item in the sidebar's Admin section opens `/users/create` (`Us
 
 - Six departments live in a `departments` table: **HR**, **Sales**, **IT**, **Wellness**, **Claims**, and **Endorsement**. Names are unique and are constants on `App\Models\Department` (`Department::HR`, ..., and `Department::ALL`).
 - They are fixed reference data, so the migration inserts them (like roles) rather than a seeder. The migration uses literal names, and a test checks `Department::ALL` matches the database so the two can't drift.
-- Nothing uses departments yet; linking users to a department is the next step.
+- **Departments page** at `/departments` (sidebar → Departments): every signed-in user can see it (`DepartmentPolicy::viewAny`). `DepartmentController::index` sends only each department's `id` and `name`, sorted by name, and the page shows them as large cards.
+- Users aren't linked to departments yet; that's the next step, and the cards will then list each department's employees.
 
 ### Shared UI
 

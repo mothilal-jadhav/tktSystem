@@ -6,6 +6,7 @@ import type { IconName } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { dashboard, logout } from '@/routes';
 import { index as binIndex } from '@/routes/bin';
+import { index as departmentsIndex } from '@/routes/departments';
 import { create as createUser, index as usersIndex } from '@/routes/users';
 import type { Permissions } from '@/types';
 
@@ -24,7 +25,11 @@ const navSections: { title: string; items: NavItem[] }[] = [
         items: [
             { label: 'Dashboard', icon: 'dashboard', href: dashboard.url() },
             { label: 'Tickets', icon: 'ticket' },
-            { label: 'Departments', icon: 'building' },
+            {
+                label: 'Departments',
+                icon: 'building',
+                href: departmentsIndex.url(),
+            },
             { label: 'Users', icon: 'users', href: usersIndex.url() },
         ],
     },
