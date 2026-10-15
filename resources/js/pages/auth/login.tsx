@@ -1,8 +1,11 @@
 import { Form, Head } from '@inertiajs/react';
+import { useState } from 'react';
 import { FormField } from '@/components/form-field';
 import { store } from '@/routes/login';
 
 export default function Login() {
+    const [showForgotPassword, setShowForgotPassword] = useState(false);
+
     return (
         <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10 dark:bg-slate-900">
             <Head title="Sign in" />
@@ -51,15 +54,50 @@ export default function Login() {
                                     error={errors.password}
                                 />
 
-                                <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                                    <input
-                                        type="checkbox"
-                                        name="remember"
-                                        value="1"
-                                        className="size-4 rounded accent-indigo-500"
-                                    />
-                                    Remember me
-                                </label>
+                                <div className="flex items-center justify-between gap-4">
+                                    <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                                        <input
+                                            type="checkbox"
+                                            name="remember"
+                                            value="1"
+                                            className="size-4 rounded accent-indigo-500"
+                                        />
+                                        Remember me
+                                    </label>
+
+                                    {/* Placeholder until password reset is built: no route yet. */}
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowForgotPassword(
+                                                (shown) => !shown,
+                                            )
+                                        }
+                                        aria-expanded={showForgotPassword}
+                                        aria-controls="forgot-password-notice"
+                                        className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                    >
+                                        Forgot password?
+                                    </button>
+                                </div>
+
+                                {showForgotPassword && (
+                                    <div
+                                        id="forgot-password-notice"
+                                        role="status"
+                                        className="rounded-md border border-indigo-200 bg-indigo-50 p-3 text-sm text-slate-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-slate-300"
+                                    >
+                                        <p className="font-semibold text-slate-800 dark:text-white">
+                                            Forgot your password?
+                                        </p>
+                                        <p className="mt-1">
+                                            Self-service reset isn't available
+                                            yet. Please contact your
+                                            administrator, who can reset it for
+                                            you.
+                                        </p>
+                                    </div>
+                                )}
 
                                 <button
                                     type="submit"
