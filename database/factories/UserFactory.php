@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -67,6 +68,16 @@ class UserFactory extends Factory
     public function admin(): static
     {
         return $this->withRole(Role::ADMIN);
+    }
+
+    /**
+     * Put the user in the given department, e.g. inDepartment(Department::IT).
+     */
+    public function inDepartment(string $name): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'department_id' => Department::where('name', $name)->value('id'),
+        ]);
     }
 
     private function withRole(string $name): static
