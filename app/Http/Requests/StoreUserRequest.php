@@ -8,9 +8,17 @@ use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreUserRequest extends FormRequest
 {
+    /**
+     * The email's local part is the name's letters, plus a number for duplicates.
+     * Local parts may be at most 64 characters (RFC 5321); 60 leaves room for
+     * a suffix of up to 4 digits.
+     */
+    public const MAX_NAME_LETTERS = 60;
+
     /**
      * Only admins may create users (UserPolicy::create).
      */
@@ -33,6 +41,24 @@ class StoreUserRequest extends FormRequest
             'name' => ['required', 'string', 'max:255', 'regex:/^(?=.*[A-Za-z])[A-Za-z. ]+$/'],
             'role' => ['required', 'string', Rule::in([Role::EMPLOYEE, Role::MANAGER, Role::ADMIN])],
             'department' => ['required', 'string', Rule::in(Department::ALL)],
+        ];
+    }
+
+    /**
+     * Keep the generated email short enough to be valid and to fit the column.
+     *
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                $name = $this->input('name');
+
+                if (is_string($name) && strlen((string) preg_replace('/[^A-Za-z]/', '', $name)) > self::MAX_NAME_LETTERS) {
+                    $validator->errors()->add('name', 'The name may contain at most '.self::MAX_NAME_LETTERS.' letters.');
+                }
+            },
         ];
     }
 

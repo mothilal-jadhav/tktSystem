@@ -4,7 +4,7 @@ An internal helpdesk and ticketing application, built one feature at a time with
 
 The project has two goals: to end up as a secure, maintainable helpdesk, and to be a hands-on way to learn Laravel, PHP, React, TypeScript, authentication, authorization, and web application security.
 
-> **Status:** early development. The app has email/password login and logout, a way for signed-in users to create accounts (with a forced password change on first login), and a dashboard UI driven by **sample data**. Roles, tickets, and the other database-backed features are not built yet. See [Roadmap](#roadmap).
+> **Status:** early development. Built so far: login and logout, forgot and reset password by email link, admin-managed users (create, list with filters, edit role and department, delete to a bin, restore), a forced password change on first sign-in, organisational roles (employee, manager, admin) enforced with policies, departments, and a Settings page with a two-step password change. The dashboard still uses **sample data**, and **tickets are not built yet**. See [Roadmap](#roadmap).
 
 ## Tech stack
 
@@ -22,7 +22,7 @@ The project has two goals: to end up as a secure, maintainable helpdesk, and to 
 
 - **Laravel** owns routing, business logic, validation, authentication, and authorization.
 - **Inertia** connects Laravel controllers to React pages: a controller returns `Inertia::render('page', $props)` and the matching component in `resources/js/pages/` renders with those props. There is no separate JSON API.
-- **React** handles presentation and interaction only. Frontend visibility checks are never treated as a security boundary; all authorization is enforced on the server (middleware today, Policies and Gates once roles exist).
+- **React** handles presentation and interaction only. Frontend visibility checks are never treated as a security boundary; all authorization is enforced on the server with middleware and Laravel Policies (`UserPolicy`, `DepartmentPolicy`) checked on routes and in form requests.
 - **Wayfinder** generates typed route helpers (`@/routes/...`) from the Laravel routes, so React pages never hard-code URLs. Forms use Inertia's `<Form>` component with `store.form()`-style helpers.
 
 ## What's been built so far
@@ -47,7 +47,7 @@ The dashboard includes:
 
 Layout and UI:
 
-- An app layout with a sidebar, top bar, and responsive mobile navigation. The signed-in user's name and initial appear in the sidebar and top bar, and the top bar has a sign-out button. Nav items for features that don't exist yet (Tickets, Settings) are shown without links and marked "soon".
+- An app layout with a sidebar, top bar, and responsive mobile navigation. The signed-in user's name and initial appear in the sidebar and top bar, and the top bar has a sign-out button. Nav items for features that don't exist yet (currently only Tickets) are shown without links and marked "soon".
 - A **dark mode toggle**. The choice is saved in `localStorage`, and a small inline script in `app.blade.php` applies the theme before the page paints, so there is no white flash on load. If nothing is saved, it follows the OS preference.
 - A small hand-written SVG icon set (`resources/js/components/icons.tsx`). No icon library was added.
 
@@ -76,7 +76,7 @@ A public registration page was first built on `/`. Because tktSystem is an inter
 
 A **Create user** item in the sidebar's Admin section opens `/users/create` (`UserController`, validated by `StoreUserRequest`). The form takes a name and a role:
 
-- **Name:** required, max 255 characters, and must match `/^(?=.*[A-Za-z])[A-Za-z. ]+$/`, meaning letters, spaces, and full stops only, with at least one letter.
+- **Name:** required, max 255 characters, and must match `/^(?=.*[A-Za-z])[A-Za-z. ]+$/`, meaning letters, spaces, and full stops only, with at least one letter. It may contain at most 60 letters (`StoreUserRequest::MAX_NAME_LETTERS`), because the letters become the email's local part, which may be at most 64 characters; the other 4 leave room for a duplicate number.
 - **Role:** a dropdown of **employee** (the default), **manager**, or **admin**, loaded from the `roles` table. The server only accepts one of those three names (`Rule::in`); a raw `role_id` is never read. The success panel shows the chosen role.
 - **Email:** generated on the server from the letters in the name, lowercased, plus `@fakemail.com` (a placeholder domain, `UserController::EMAIL_DOMAIN`). For example, `Dr. Asha  Rao` becomes `drasharao@fakemail.com`. If that address is taken, a number is added (`drasharao1@fakemail.com`, `drasharao2@fakemail.com`, …).
 - **Password:** a random 16-character string from `Str::password(16)`, stored hashed. The plain password is shown to the creator **once**, using Inertia flash data, which is not kept in browser history. It is never stored or logged.
@@ -234,6 +234,7 @@ tests/Feature/EmailDomainMigrationTest.php              gmail → fakemail migra
 tests/Feature/UserEditTest.php                          Edit user (role) tests
 tests/Feature/UserBinTest.php                           Delete, bin, restore, and delete-forever tests
 tests/Feature/SettingsTest.php                          Settings page and password change tests
+tests/Feature/DatabaseSeederTest.php                    Demo admin seeding (skipped in production)
 ```
 
 ## Getting started
@@ -265,7 +266,7 @@ DB_PASSWORD=your_password
 
 To use SQLite instead, set `DB_CONNECTION=sqlite`, run `touch database/database.sqlite`, and then `php artisan migrate`.
 
-There is no public sign-up. To get a first account locally, run `php artisan db:seed`, which creates the admin `test@example.com` with the password `password`. Further accounts are created from **Create user** in the sidebar.
+There is no public sign-up. To get a first account locally, run `php artisan db:seed`, which creates the admin `test@example.com` with the password `password` (skipped if it already exists). `DatabaseSeeder` creates no users at all in production, so this known password can never reach a live server. Further accounts are created from **Create user** in the sidebar.
 
 **Demo employees:** `php artisan db:seed --class=DepartmentEmployeeSeeder` (also run by `php artisan db:seed`) creates 53 made-up employees with Indian names and `@fakemail.com` emails: 3 in HR and 10 in every other department. Managers aren't included. Each gets a random password and must change it on first sign-in. The passwords are saved to `storage/app/private/seeded-users.csv` (git-ignored, never logged). The seeder is safe to re-run: it skips emails that already exist, including users in the bin. It refuses to run in production.
 
@@ -294,7 +295,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 
 - `tests/Feature/DashboardTest.php`: signed-in users see the `dashboard` component; it receives every expected prop with the right types (6 stats, 12 days of chart data, a resolution rate between 0 and 100, department counts, and recent tickets); the props never include sensitive fields such as `password`, `remember_token`, `email`, or `internal_note`; guests are redirected to the login page.
 - `tests/Feature/Auth/AuthenticationTest.php`: the login page renders; valid credentials sign in and regenerate the session ID; a wrong password and an unknown email get the same error; invalid input is rejected; the remember cookie is set only when "Remember me" is ticked; repeated failures lock the account out; users return to the page they asked for; signed-in users are kept away from the login page; logout works, is POST-only, and is not available to guests; registration routes are gone; only the user's `id` and `name` are shared.
-- `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; employees and managers get 403 on both; the form receives the role options; admins can create employees, managers, and admins; missing, unknown, or old (requester/agent) roles are rejected; only admins are told they can create users; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long); client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
+- `tests/Feature/UserCreationTest.php`: guests can't open or submit the form; employees and managers get 403 on both; the form receives the role options; admins can create employees, managers, and admins; missing, unknown, or old (requester/agent) roles are rejected; only admins are told they can create users; the email is built from the name, with numbers added for duplicates; the temporary password is 16 characters, stored hashed, and shown only once; invalid names are rejected (empty, digits, symbols, HTML, hyphens, only dots and spaces, too long, more than 60 letters); the longest allowed name still gives an email local part of at most 64 characters, even with a number added; client-supplied email, password, and flags are ignored; users with a temporary password can't create users.
 - `tests/Feature/EmailDomainMigrationTest.php`: `@gmail.com` addresses (including binned users) move to `@fakemail.com` and others are untouched; only the trailing domain is replaced; a clash stops and rolls back the whole change; the migration reverses; signing in works with the new address.
 - `tests/Feature/UserEditTest.php`: admins see the edit form with the user and role options; admins can set each role and a message is flashed; name, email, `role_id`, and other fields can't be changed; missing, unknown, or old roles are rejected; admins can't edit another admin or themselves; employees, managers, and guests can't edit; users in the bin can't be edited.
 - `tests/Feature/UserBinTest.php`: admins can move employees and managers to the bin, but not admins or themselves; employees, managers, and guests can't delete; deleted users vanish from the list, can't sign in, and are signed out if already signed in; a success message is flashed; new users don't reuse a binned user's email; only admins can see the bin, which lists only deleted users with safe fields; admins can restore (and the user can sign in again) or delete forever, non-admins can't, and neither works on users that aren't in the bin.
@@ -303,6 +304,7 @@ This starts the Laravel server and the Vite dev server together. Open the `APP_U
 - `tests/Feature/Auth/PasswordChangeTest.php`: users with a temporary password are redirected from protected pages; signing in with one leads to the change page; they can still sign out; the new password is validated (missing, too short, mismatched, same as temporary); a successful change lifts the restriction; other users skip the page; guests can't reach it.
 - `tests/Feature/Auth/PasswordResetTest.php`: guests can open the forgot password page and signed-in users are kept off all four reset routes; a link is sent to an existing user and points to the reset page with the token and email; unknown and binned emails get the same message and no link; the email is validated; the link opens the reset page; a valid token resets the password, lifts the forced change, rotates the remember token, and deletes the token; a used, wrong, expired, or other user's token is rejected with one generic error; the new password is validated; the form is rate limited.
 - `tests/Feature/SettingsTest.php`: employees, managers, and admins can open settings; it sends exactly the user's own name, email, role, and department (or none); guests are redirected from all three routes; users with a temporary password must change it first; the right current password unlocks step 2 and a wrong or missing one doesn't; the new password can't be set without step 1, after cancelling, after opening another page, or after the 5-minute window; refreshing, a validation error, or a prefetch keeps step 2; a successful change rotates the remember token, keeps the user signed in, and resets to step 1; a client-supplied user id can't change someone else's password; the new password is validated (missing, short, mismatched, unchanged); both steps are rate limited.
+- `tests/Feature/DatabaseSeederTest.php`: the demo admin is created outside production; re-running doesn't fail or duplicate it; in production no users are created.
 
 ## Security notes
 
@@ -323,6 +325,7 @@ These are known gaps in the current development setup. Fix them before the app h
 
 - **Email addresses are placeholders.** Generated addresses use `@fakemail.com`, and a data migration moved every `@gmail.com` user to it. Password reset emails can only reach real, controlled mailboxes, so real addresses must be captured for real users, and `MAIL_MAILER` must be changed from `log` to a real mailer.
 - **Role assignments came from migrations.** `add_role_id_to_users_table` made every user that existed at the time an **admin**, and `rename_roles_to_org_roles` turned every **agent** into a **manager**. Review everyone's role before deploying against real data.
+- **The first production admin** must be created by a separate, secure process with a strong password. `DatabaseSeeder` deliberately creates no users in production.
 - **Admins can't be demoted in the app.** Admins can't edit or delete other admins (`UserPolicy`), so a user promoted to admin by mistake currently needs a database fix. This will be addressed later.
 - **Dependencies:** `npm audit` reported 3 critical issues in dev-only tooling: `tinypool` ≤2.1.1, pulled in through `oxfmt` and `vite-plus` 0.3.0. An `overrides` entry in `package.json` forces `tinypool` ^2.1.2. Upgrading `vite-plus` instead would also have replaced Vite with its own fork. Remove the override once `vite-plus` is upgraded. Run `npm audit` and `composer audit` before each release.
 
@@ -330,8 +333,8 @@ These are known gaps in the current development setup. Fix them before the app h
 
 - [x] Project setup, tooling, and CI
 - [x] Dashboard UI (sample data), layout, and dark mode
-- [x] Authentication: login, logout, remember me, rate limiting (public registration removed)
-- [ ] User management (done so far: create user with a generated email and temporary password, and a forced password change on first login)
+- [x] Authentication: login, logout, remember me, rate limiting, password reset by email link (public registration removed)
+- [ ] User management (done so far: create with a generated email and temporary password, list with role and department filters, edit role and department, delete to a bin and restore, forced password change on first sign-in, forgot/reset password, Settings with a two-step password change)
 - [ ] Departments and roles (done so far: employee, manager, and admin roles; admins pick the role and department when creating or editing users)
 - [ ] Ticket creation, listing, details, and updates
 - [ ] Ticket assignment and status management

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Requests\StoreUserRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -79,6 +80,34 @@ test('invalid names are rejected', function (string $name) {
     'only dots and spaces' => '. .',
     'too long' => str_repeat('a', 256),
 ]);
+
+test('names with more letters than an email address allows are rejected', function () {
+    // 61 letters, well under the 255-character limit thanks to the spaces.
+    $name = implode(' ', str_split(str_repeat('a', StoreUserRequest::MAX_NAME_LETTERS + 1), 10));
+
+    $this->actingAs($this->creator)
+        ->post(route('users.store'), ['name' => $name, 'role' => 'employee', 'department' => 'IT'])
+        ->assertSessionHasErrors(['name' => 'The name may contain at most 60 letters.']);
+
+    expect(User::count())->toBe(1);
+});
+
+test('the longest allowed name still gives a valid email, even with a number added', function () {
+    $name = str_repeat('a', StoreUserRequest::MAX_NAME_LETTERS);
+
+    foreach (range(1, 2) as $attempt) {
+        $this->actingAs($this->creator)
+            ->post(route('users.store'), ['name' => $name, 'role' => 'employee', 'department' => 'IT'])
+            ->assertSessionHasNoErrors();
+    }
+
+    $emails = User::where('name', $name)->orderBy('id')->pluck('email');
+    expect($emails->all())->toBe([
+        str_repeat('a', 60).'@fakemail.com',
+        str_repeat('a', 60).'1@fakemail.com',
+    ]);
+    $emails->each(fn (string $email) => expect(strlen(strstr($email, '@', true)))->toBeLessThanOrEqual(64));
+});
 
 test('client-supplied email, password and flags are ignored', function () {
     $this->actingAs($this->creator)->post(route('users.store'), [

@@ -10,17 +10,29 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
+    public const DEMO_ADMIN_EMAIL = 'test@example.com';
+
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Demo data only. The demo admin's password is the factory's known
+        // "password", so it must never exist in production. Create the first
+        // production admin separately, with a strong password.
+        if (app()->isProduction()) {
+            $this->command->warn('Demo users are not created in production.');
 
-        User::factory()->admin()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+            return;
+        }
+
+        // Safe to run again: users in the bin keep their email, so check them too.
+        if (! User::withTrashed()->where('email', self::DEMO_ADMIN_EMAIL)->exists()) {
+            User::factory()->admin()->create([
+                'name' => 'Test User',
+                'email' => self::DEMO_ADMIN_EMAIL,
+            ]);
+        }
 
         $this->call(DepartmentEmployeeSeeder::class);
     }
