@@ -40,6 +40,9 @@ Route::middleware('auth')->group(function () {
     Route::middleware(EnsurePasswordIsChanged::class)->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
+        // Placeholder until tickets are built; any signed-in user.
+        Route::inertia('/tickets', 'tickets/index')->name('tickets.index');
+
         // Any signed-in user; only ever acts on their own account.
         Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
         // Two steps: confirm the current password, then set the new one.

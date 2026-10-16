@@ -8,6 +8,7 @@ import { dashboard, logout } from '@/routes';
 import { index as binIndex } from '@/routes/bin';
 import { index as departmentsIndex } from '@/routes/departments';
 import { edit as settings } from '@/routes/settings';
+import { index as ticketsIndex } from '@/routes/tickets';
 import { create as createUser, index as usersIndex } from '@/routes/users';
 import type { Permissions } from '@/types';
 
@@ -25,7 +26,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
         title: 'Main',
         items: [
             { label: 'Dashboard', icon: 'dashboard', href: dashboard.url() },
-            { label: 'Tickets', icon: 'ticket' },
+            { label: 'Tickets', icon: 'ticket', href: ticketsIndex.url() },
             {
                 label: 'Departments',
                 icon: 'building',
